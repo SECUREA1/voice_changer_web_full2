@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>📊 Token Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: linear-gradient(to right,#7c0a02,#260101);
+      color: #ffd700;
+      font-family: 'Segoe UI',sans-serif;
+      margin: 0;
+      text-align: center;
+      min-height: 100vh;
+    }
+    h1 { margin-top: 1.2em; }
+    table { margin: 0 auto 1.5em auto; border-collapse: collapse; width: 90%; max-width: 640px; }
+    th, td { border: 1px solid #ffd70066; padding: 0.4em; }
+    th { background: #181818; }
+    button { padding: 0.5em 1.2em; background:#b30000; color:#ffd700; border:2px solid #ffd700; border-radius:8px; cursor:pointer; }
+    button:hover { background:#ff0000; }
+  </style>
+</head>
+<body>
+  <h1>📊 Token &amp; Reward Tracker</h1>
+  <section>
+    <h2>NFTs per Chain</h2>
+    <table id="nft-table"><tr><th>Chain</th><th>Count</th></tr></table>
+  </section>
+  <section>
+    <h2>Top Rewards</h2>
+    <table id="rewards-table"><tr><th>#</th><th>Wallet</th><th>Chain</th><th>Rewards</th></tr></table>
+  </section>
+  <button onclick="refreshData()">Refresh</button>
+  <script>
+    async function refreshData(){
+      try{
+        const items = await fetch('/marketplace/api/items').then(r=>r.json());
+        const counts = {};
+        items.forEach(i=>{ counts[i.chain]=(counts[i.chain]||0)+1; });
+        document.getElementById('nft-table').innerHTML = '<tr><th>Chain</th><th>Count</th></tr>' +
+          Object.entries(counts).map(([c,n])=>`<tr><td>${c.toUpperCase()}</td><td>${n}</td></tr>`).join('');
+      }catch{}
+      try{
+        const data = await fetch('/api/leaderboard').then(r=>r.json());
+        document.getElementById('rewards-table').innerHTML = '<tr><th>#</th><th>Wallet</th><th>Chain</th><th>Rewards</th></tr>' +
+          data.map((r,i)=>`<tr><td>${i+1}</td><td>${r.wallet.slice(0,6)}...${r.wallet.slice(-4)}</td><td>${r.chain.toUpperCase()}</td><td>${r.rewards}</td></tr>`).join('');
+      }catch{}
+    }
+    refreshData();
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

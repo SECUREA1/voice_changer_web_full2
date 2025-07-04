@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🧪 Token Mixer</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    .mixer-container { max-width: 800px; margin: auto; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+    .track { margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
+    .track label { font-weight: bold; display: block; margin-bottom: 5px; }
+    audio { width: 100%; margin-top: 8px; }
+    .controls, .wallet, .status { margin-top: 20px; text-align: center; }
+  button { margin: 5px; padding: 10px 15px; border-radius: 6px; border: none; background: #4CAF50; color: white; cursor: pointer; }
+  button:disabled { background: #999; }
+  /* Dapp Footer Navigation */
+  .dapp-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.3em 2.1em;
+    margin: 2.4em auto 1.6em auto;
+    max-width: 980px;
+    background: rgba(30,0,0,0.07);
+    border-radius: 22px;
+    padding: 2em 1.5em 1em 1.5em;
+    box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+  }
+  .dapp-card {
+    background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+    border: 2.1px solid #ffd70088;
+    border-radius: 14px;
+    box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+    text-align: center;
+    padding: 1.3em 1.1em 1.2em 1.1em;
+    margin-bottom: 0.2em;
+    transition: box-shadow .17s, transform .16s;
+  }
+  .dapp-card:hover {
+    transform: translateY(-4px) scale(1.04);
+    box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+    border-color: #ffd700ee;
+    background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+  }
+  .dapp-icon {
+    font-size: 2.05em;
+    display: block;
+    margin-bottom: 0.18em;
+    filter: drop-shadow(0 0 9px #ffd70090);
+  }
+  .launch-button {
+    margin-top: 1.0em;
+    display: inline-block;
+    padding: 0.65em 1.65em;
+    border-radius: 8px;
+    background: #b30000;
+    color: #ffd700;
+    border: 1.7px solid #ffd700ab;
+    font-weight: bold;
+    font-size: 1em;
+    text-decoration: none;
+    transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+    box-shadow: 0 1.5px 8px #ffd70024;
+  }
+  .launch-button:hover, .launch-button:focus {
+    background: #ffd700;
+    color: #b30000;
+    box-shadow: 0 0 16px #ffd70088;
+  }
+  @media (max-width: 780px) { .dapp-list { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+  @media (max-width: 530px) { .dapp-list { grid-template-columns: 1fr; } .dapp-card { margin-bottom: 1.4em; } }
+  footer { text-align:center; color:#ffcc70; font-size:1em; margin:1.2em 0 0.2em 0; }
+  </style>
+</head>
+<body>
+
+<a href="/">⬅ Back</a>
+<h2>🎧 Token Mixer</h2>
+<p>Upload and mix your audio NFTs, then mint a new multi-chain NFT!</p>
+
+<div class="wallet">
+  <button id="connect-wallet">🔗 Connect Wallet</button>
+  <div id="wallet-address"></div>
+</div>
+
+<div class="mixer-container">
+  <div class="track">
+    <label for="voice-file">🎤 Voice Clip:</label>
+    <input type="file" id="voice-file" accept="audio/*">
+    <audio id="voice-preview" controls></audio>
+  </div>
+
+  <div class="track">
+    <label for="beat-file">🥁 Beat Layer:</label>
+    <input type="file" id="beat-file" accept="audio/*">
+    <audio id="beat-preview" controls></audio>
+  </div>
+
+  <div class="track">
+    <label for="fx-file">✨ FX Layer:</label>
+    <input type="file" id="fx-file" accept="audio/*">
+    <audio id="fx-preview" controls></audio>
+  </div>
+
+  <div class="controls">
+    <button id="preview-mix">▶️ Preview Mix</button>
+    <button id="mint-nft">🪙 Mint Audio NFT</button>
+  </div>
+
+  <div class="status" id="mint-status"></div>
+</div>
+
+<!-- Blockchain Connectors -->
+<script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+
+<!-- Mixer Logic -->
+<script src="{{ url_for('static', filename='mixer.js') }}"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const walletAddressDiv = document.getElementById("wallet-address");
+    const previewButtons = {
+      voice: document.getElementById("voice-file"),
+      beat: document.getElementById("beat-file"),
+      fx: document.getElementById("fx-file")
+    };
+
+    const previewAudios = {
+      voice: document.getElementById("voice-preview"),
+      beat: document.getElementById("beat-preview"),
+      fx: document.getElementById("fx-preview")
+    };
+
+    // Preview logic
+    Object.keys(previewButtons).forEach(key => {
+      previewButtons[key].addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          previewAudios[key].src = URL.createObjectURL(file);
+          previewAudios[key].load();
+        }
+      });
+    });
+
+    // Wallet connect simulation
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
+      const address = "0xUserWalletExample";  // Simulated for now
+      walletAddressDiv.textContent = `Wallet: ${address}`;
+    });
+
+    // Mint audio NFT
+    document.getElementById("mint-nft").addEventListener("click", async () => {
+      const formData = new FormData();
+      const wallet = walletAddressDiv.textContent.replace("Wallet: ", "");
+      formData.append("walletAddress", wallet);
+      formData.append("chain", "ethereum");
+
+      if (previewButtons.voice.files[0]) formData.append("voice", previewButtons.voice.files[0]);
+      if (previewButtons.beat.files[0]) formData.append("beat", previewButtons.beat.files[0]);
+      if (previewButtons.fx.files[0]) formData.append("fx", previewButtons.fx.files[0]);
+
+      const status = document.getElementById("mint-status");
+      status.textContent = "Minting in progress...";
+
+  const response = await fetch("/api/mint-nft", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.json();
+  status.textContent = result.message || "Mint complete";
+    });
+  });
+</script>
+
+<section class="dapp-list" id="dapps">
+  <article class="dapp-card">
+    <span class="dapp-icon">🎤</span>
+    <h2>Voice Changer</h2>
+    <p>Real-time audio manipulation</p>
+    <a class="launch-button" href="/voice-changer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">📋</span>
+    <h2>Quest Board</h2>
+    <p>Complete tasks, earn tokens</p>
+    <a class="launch-button" href="/quest-board">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🎹</span>
+    <h2>NFT Mixer</h2>
+    <p>Blend tokens and NFTs into new forms</p>
+    <a class="launch-button" href="/token-mixer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🖼️</span>
+    <h2>NFT Viewer</h2>
+    <p>Display owned NFTs</p>
+    <a class="launch-button" href="/nft-viewer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🎮</span>
+    <h2>Game Portal</h2>
+    <p>Play blockchain mini-games</p>
+    <a class="launch-button" href="/game">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🛒</span>
+    <h2>Marketplace</h2>
+    <p>Buy/sell items with tokens</p>
+    <a class="launch-button" href="/marketplace">Launch</a>
+  </article>
+</section>
+<footer>
+  <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+</footer>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+
+</body>
+</html>

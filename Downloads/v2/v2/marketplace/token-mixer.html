@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Token Mixer</title>
+    <style>
+      /* Dapp Footer Navigation */
+      .dapp-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.3em 2.1em;
+        margin: 2.4em auto 1.6em auto;
+        max-width: 980px;
+        background: rgba(30,0,0,0.07);
+        border-radius: 22px;
+        padding: 2em 1.5em 1em 1.5em;
+        box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+      }
+      .dapp-card {
+        background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+        border: 2.1px solid #ffd70088;
+        border-radius: 14px;
+        box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+        text-align: center;
+        padding: 1.3em 1.1em 1.2em 1.1em;
+        margin-bottom: 0.2em;
+        transition: box-shadow .17s, transform .16s;
+      }
+      .dapp-card:hover {
+        transform: translateY(-4px) scale(1.04);
+        box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+        border-color: #ffd700ee;
+        background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+      }
+      .dapp-icon { font-size: 2.05em; display:block; margin-bottom:0.18em; filter: drop-shadow(0 0 9px #ffd70090); }
+      .launch-button {
+        margin-top: 1.0em; display:inline-block; padding: 0.65em 1.65em;
+        border-radius: 8px; background: #b30000; color: #ffd700;
+        border: 1.7px solid #ffd700ab; font-weight: bold; font-size: 1em;
+        text-decoration: none; transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+        box-shadow: 0 1.5px 8px #ffd70024;
+      }
+      .launch-button:hover, .launch-button:focus { background:#ffd700; color:#b30000; box-shadow:0 0 16px #ffd70088; }
+      footer { text-align:center; color:#ffcc70; font-size:1em; margin:1.2em 0 0.2em 0; }
+    </style>
+</head>
+<body>
+<section class="dapp-list" id="dapps">
+  <article class="dapp-card">
+    <span class="dapp-icon">🎤</span>
+    <h2>Voice Changer</h2>
+    <p>Real-time audio manipulation</p>
+    <a class="launch-button" href="/voice-changer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">📋</span>
+    <h2>Quest Board</h2>
+    <p>Complete tasks, earn tokens</p>
+    <a class="launch-button" href="/quest-board">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🎹</span>
+    <h2>NFT Mixer</h2>
+    <p>Blend tokens and NFTs into new forms</p>
+    <a class="launch-button" href="/token-mixer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🖼️</span>
+    <h2>NFT Viewer</h2>
+    <p>Display owned NFTs</p>
+    <a class="launch-button" href="/nft-viewer">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🎮</span>
+    <h2>Game Portal</h2>
+    <p>Play blockchain mini-games</p>
+    <a class="launch-button" href="/game">Launch</a>
+  </article>
+  <article class="dapp-card">
+    <span class="dapp-icon">🛒</span>
+    <h2>Marketplace</h2>
+    <p>Buy/sell items with tokens</p>
+    <a class="launch-button" href="/marketplace">Launch</a>
+  </article>
+</section>
+<footer>
+  <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+</footer>
+</body>
+</html>

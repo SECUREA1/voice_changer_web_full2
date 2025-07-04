@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎸 Rock Rewards Portal – Legendary Challenge</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+  <style>
+    :root {
+      --gold: #ffe054;
+      --red: #fe3161;
+      --panel: #23272c;
+      --dark: #181d21;
+      --rock-shadow: 0 8px 24px rgba(254,49,97,0.16);
+      --card-bg: rgba(255, 224, 84, 0.09);
+      --gradient-rock: linear-gradient(90deg,#fe3161 0%,#f2a900 100%);
+      --graffiti: 'Russo One', cursive;
+      --header-width: 850px;
+    }
+    html, body {
+      margin:0; padding:0;
+      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+      background: var(--dark);
+      color: var(--gold);
+    }
+    header {
+      background: var(--panel);
+      padding: 1.2em 1em 0.9em 1em;
+      border-radius: 0 0 22px 22px;
+      margin-bottom:1.15em;
+      box-shadow: var(--rock-shadow);
+      position: relative;
+      max-width: var(--header-width);
+      margin-left:auto; margin-right:auto;
+      display:flex; flex-direction:column; align-items:center;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width:100%;
+      max-width:740px;
+      margin-bottom: 0.55em;
+      gap: 1.5em;
+    }
+    .brand-logo {
+      width:60px;height:60px;display:inline-block;vertical-align:middle;border-radius:50%;
+      background:var(--gradient-rock);margin-right:0.7em;box-shadow:0 2px 16px #fe316144;
+      border:3.5px solid #ffe054cc;text-align:center;font-size:2.1em;line-height:64px;
+      font-family:var(--graffiti);color:var(--red);font-weight:900;text-shadow:0 2px 0 #fff9;
+    }
+    .header-title {
+      font-family:var(--graffiti);
+      font-size:2.05em;
+      letter-spacing:0.03em;
+      color: var(--gold);
+      flex:1;
+    }
+    .wallet-icons-bar {
+      display:flex; gap:0.2em; align-items:center; margin-left:1em;
+    }
+    .wallet-btn {
+      font-size:1.55em; border:none; background:none; cursor:pointer; border-radius:7.5px;
+      padding:0.13em 0.35em; margin:0 1px; transition:background 0.14s;
+      box-shadow: 0 0 10px #ffe05430;
+    }
+    .wallet-btn:hover, .wallet-btn.active { background: #ffe0543d; }
+    .wallet-connect-btn {
+      background:var(--red); color:var(--gold); border-radius:10px; border:1.5px solid var(--gold);
+      font-size:1em; padding:0.34em 1.2em; font-weight:600; margin-left:1em; cursor:pointer;
+      transition: background 0.13s;
+    }
+    .wallet-connect-btn:hover { background:#f2a900;}
+    .wallet-status {
+      font-size:1em; color:#fffbe7; background:#ffe05420;
+      border-radius:8px; padding:0.22em 0.9em; margin-left:1em;
+      box-shadow:0 1px 7px #ffe05424;
+      font-weight:700;
+      letter-spacing:0.02em;
+    }
+    .subtitle {
+      text-align:center;
+      color:#ffd700b0;
+      font-size:1.09em;
+      margin-bottom:0.15em;
+      margin-top:0.2em;
+      width: 100%;
+    }
+    .status-progress-outer {
+      max-width: 650px;
+      margin: 1.3em auto 1.2em auto;
+      background: #23272c;
+      border: 2.5px solid #ffe054bb;
+      border-radius: 16px;
+      box-shadow: 0 4px 32px #ffe05413;
+      padding: 1.1em 3vw 0.7em 3vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 1.11em;
+      position:relative;
+    }
+    .status-progress-bar {
+      display: flex;
+      justify-content: center;
+      gap: 2em;
+      font-size: 1.32em;
+      margin-bottom: 0.44em;
+      letter-spacing: 0.03em;
+      flex-wrap:wrap;
+    }
+    .status-progress-bar span {
+      text-shadow:0 1px 12px #ffe05444, 0 0px 2px #fe3161aa;
+      filter: drop-shadow(0 0 6px #ffe054b5);
+    }
+    .status-progress-info {
+      display: flex;
+      gap: 1.8em;
+      margin-bottom: 0.27em;
+    }
+    .status-next {
+      font-size: 1.09em;
+      margin-bottom: 0.19em;
+      color: #ffe054e7;
+      text-align: center;
+    }
+    .status-bottom-row {
+      margin-top: 0.1em;
+      color: #ffd700c8;
+      font-size: 1.04em;
+    }
+    .status-progress-bar b { font-size:1.09em; }
+    @media (max-width: 820px) {
+      header, .status-progress-outer {max-width: 99vw;}
+      .header-row {max-width:98vw;}
+    }
+    @media (max-width: 520px) {
+      .status-progress-bar {gap:0.7em; font-size: 1em;}
+      .status-progress-info {gap:0.7em; font-size:0.98em;}
+      .status-progress-outer {font-size:0.97em;}
+      .header-title {font-size:1.22em;}
+    }
+    .main-container { max-width:1100px; margin:1.3em auto; padding:0 1.1em;}
+    .market-grid {display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));gap:1.1em;}
+    .nft-card {
+      background: var(--card-bg);
+      border: 2.2px solid var(--gold);
+      border-radius: 14px;
+      box-shadow: var(--rock-shadow);
+      padding: 1.2em 1em 1.3em 1em;
+      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      min-height: 250px; overflow:hidden;
+      transition:box-shadow 0.13s, border 0.13s;
+      text-align:center;
+    }
+    .nft-card.legendary {border-color:var(--red);}
+    .nft-card .badge {
+      font-size: 1.11em; background:#ffe0541a; color:#fff; padding:0.22em 0.67em; border-radius:9px; margin-bottom:0.36em;
+      font-weight:900; letter-spacing:0.01em; box-shadow:0 1px 7px #ffe05422;
+    }
+    .nft-card .legend {
+      font-family:var(--graffiti);
+      font-size:1.26em;color:var(--gold);background:var(--gradient-rock);padding:0.18em 0.8em;border-radius:12px;margin-bottom:0.29em;
+      text-shadow:0 2px 12px #fe316144;
+    }
+    .nft-layer-stack {width:100%;height:112px;display:flex;align-items:center;justify-content:center;position:relative;}
+    .nft-layer-stack img, .nft-layer-stack video, .nft-layer-stack model-viewer {max-height:105px;border-radius:8px;}
+    .nft-layer-stack img {margin:auto;max-width:100%;background:#0003;}
+    .nft-layer-stack .gif {background:#000;border-radius:9px;}
+    .nft-card button {
+      background: #fe3161;
+      color: var(--gold);
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 0.6em 1.1em;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 0.33em;
+      transition: background 0.17s;
+    }
+    .nft-card button:active, .nft-card button:focus {background: #8e1542;}
+    .nft-card .supply { color: var(--gold); font-size:1.09em; margin:0.2em 0 0.12em 0; font-weight:700;}
+    .daily-claim-area {text-align:center; margin: 1.1em 0 1.7em 0;}
+    .daily-btn {
+      background: var(--gold);
+      color: var(--red);
+      font-size: 1.18em;
+      font-family: var(--graffiti);
+      font-weight: 900;
+      border: 3px solid var(--red);
+      border-radius: 17px;
+      padding: 0.38em 2.2em;
+      margin-top: 0.4em;
+      cursor: pointer;
+      box-shadow:0 2px 10px #f2a90033;
+      transition:background 0.17s, color 0.17s, box-shadow 0.15s;
+    }
+    .daily-btn:active, .daily-btn:focus { background:#f2a900; color:#181818;}
+    .claim-result {font-size:1.13em;font-weight:700;margin:1.1em 0 1.2em 0; min-height:26px; color:var(--gold);}
+    .modal-bg {display:none; position:fixed; z-index:1000; top:0; left:0; width:100vw; height:100vh;
+      background:rgba(0,0,0,0.78); align-items:center; justify-content:center;}
+    .modal {
+      background:#23272c; border-radius:15px; padding:2.1em 2em 1.3em 2em; box-shadow:0 8px 34px #000b; color:#ffe054;
+      min-width:340px;max-width:92vw;position:relative;
+    }
+    .modal h3 {margin-top:0;}
+    .modal select, .modal input {width:85%;font-size:1.08em;margin-bottom:1.2em;}
+    .modal-btns {text-align:center;}
+    .modal-btns button {margin:0 1.3em;}
+    .close-modal { position:absolute; top:11px; right:23px; color:#ffe054; font-size:1.34em; cursor:pointer;}
+    .toast { position:fixed; bottom:2.2em; left:50%; transform:translateX(-50%); background:#f2a900; color:#23272c;
+      padding:1em 2em; border-radius:8px; font-weight:700; display:none; z-index:2000;}
+    /* Leaderboard styles */
+    .leaderboard {max-width:600px;margin:1.5em auto;text-align:center;}
+    .leaderboard table {width:100%;border-collapse:collapse;}
+    .leaderboard th, .leaderboard td {border:1px solid var(--gold);padding:0.4em;}
+    .leaderboard th {background:#23272c;}
+    .wallet-bar-top{display:flex;align-items:center;justify-content:flex-end;background:rgba(30,30,30,0.92);border-bottom:2.5px solid #ffd700;padding:.73rem 2.1rem .73rem 1.4rem;border-radius:0 0 17px 17px;font-size:1.11em;min-height:48px;position:sticky;top:0;z-index:99;box-shadow:0 5px 28px #ffd70016;flex-wrap:wrap;gap:1em;}
+    .wallet-bar-top>*{margin-left:1.4em;}
+    .wallet-bar-top select,.wallet-bar-top button,.wallet-bar-top input[type="text"]{padding:7px 13px;font-size:1rem;border-radius:7px;border:1px solid #ffd70060;background:#181818;color:#ffd700;outline:none;box-shadow:none;transition:border .2s;}
+    .wallet-bar-top button{background:#b30000;color:#ffd700;border:1.5px solid #ffd700;cursor:pointer;font-weight:600;transition:background .18s;}
+    .wallet-bar-top button:hover,.wallet-bar-top select:focus{background:#ff0000;border:1.5px solid #ffd700;}
+    .wallet-addr-mini{font-weight:600;background:#260101;border-radius:6px;border:1.1px solid #ffd700;padding:4px 13px;font-size:1.04em;margin-left:1.2em;}
+    .rewards-bar-outer{width:100%;display:flex;justify-content:center;margin:1.8rem 0 1.1rem 0;position:relative;z-index:10;}
+    .rewards-bar{margin:0 auto 1.8em auto;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0.85em;justify-content:center;align-items:flex-end;max-width:100vw;background:linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);border-radius:18px;box-shadow:0 2px 22px #ffd70021, 0 0 40px #b3000011;border:2.1px solid #ffd700cc;padding:0.62em 0.8em 0.38em 0.8em;scrollbar-width:none;-ms-overflow-style:none;}
+    .rewards-bar::-webkit-scrollbar{display:none;}
+    .reward-chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:54px;max-width:90px;margin:0 0.04em;padding:0.13em 0.12em 0.26em 0.13em;background:none;border:none;font-size:1em;cursor:pointer;position:relative;border-radius:13px;box-shadow:0 2px 14px #ffd70017;transition:transform .14s, box-shadow .14s;border:1.5px solid transparent;}
+    .reward-chip:hover,.reward-chip:focus{transform:scale(1.10);box-shadow:0 4px 36px #ffd700e0,0 2px 12px #b3000050;z-index:2;border-color:var(--gold);}
+    .reward-chip.rare .emoji{color:#e61cb2;}
+    .reward-chip.unique .emoji{color:#1bb8e7;}
+    .reward-chip.bundle .emoji{color:#ff7800;}
+    .reward-chip.sampler .emoji{color:#f5d300;}
+    .reward-chip .emoji{font-size:1.6em;margin-bottom:0.02em;filter:drop-shadow(0 0 8px #ffd70063);animation:pulseGlow 1.5s infinite alternate;text-shadow:0 0 12px #ffd700a8;}
+    .reward-chip .label{font-size:1em;font-weight:700;color:#ffd700;margin:0.09em 0 0.11em 0;white-space:nowrap;text-align:center;text-shadow:0 1px 7px #b3000032;}
+    .reward-chip .supply-box{background:linear-gradient(90deg,#fffbe6 60%,#ffd700 100%);color:#b30000;border-radius:9px;box-shadow:0 2px 12px #ffd70060,0 0 8px #b3000023;font-weight:bold;padding:0.21em 0.92em 0.17em 0.92em;font-size:1.05em;margin-top:0.05em;min-width:34px;text-align:center;border:2px solid #ffd70099;animation:supplyGlow 2.2s infinite alternate;}
+    @keyframes pulseGlow{from{filter:drop-shadow(0 0 8px #ffd70090);}to{filter:drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow{from{box-shadow:0 2px 12px #ffd70041;}to{box-shadow:0 0 20px #ffd700ee,0 2px 12px #ffd70030;}}
+    /* Dapp Footer Navigation */
+    .dapp-list{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:1.3em 2.1em;
+      margin:2.4em auto 1.6em auto;
+      max-width:980px;
+      background:rgba(30,0,0,0.07);
+      border-radius:22px;
+      padding:2em 1.5em 1em 1.5em;
+      box-shadow:0 4px 30px #ffd70013,0 1px 10px #b3000022;
+    }
+    .dapp-card{
+      background:linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border:2.1px solid #ffd70088;
+      border-radius:14px;
+      box-shadow:0 2px 18px #ffd70017,0 1px 9px #ffd70013;
+      text-align:center;
+      padding:1.3em 1.1em 1.2em 1.1em;
+      margin-bottom:.2em;
+      transition:box-shadow .17s,transform .16s;
+    }
+    .dapp-card:hover{
+      transform:translateY(-4px) scale(1.04);
+      box-shadow:0 6px 28px #ffd70070,0 1px 20px #b3000020;
+      border-color:#ffd700ee;
+      background:linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon{font-size:2.05em;display:block;margin-bottom:.18em;filter:drop-shadow(0 0 9px #ffd70090);}
+    .launch-button{
+      margin-top:1em;display:inline-block;padding:.65em 1.65em;border-radius:8px;background:#b30000;color:var(--gold);border:1.7px solid #ffd700ab;font-weight:bold;font-size:1em;text-decoration:none;transition:background .17s,color .14s,box-shadow .18s;box-shadow:0 1.5px 8px #ffd70024;
+    }
+    .launch-button:hover,.launch-button:focus{background:#ffd700;color:#b30000;box-shadow:0 0 16px #ffd70088;}
+    @media (max-width:780px){.dapp-list{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}}
+    @media (max-width:530px){.dapp-list{grid-template-columns:1fr}.dapp-card{margin-bottom:1.4em}}
+    footer {margin-top:2em;text-align:center;color:var(--gold);}
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <span class="brand-logo" title="Rock Rewards">RR</span>
+    <span class="header-title">Rock Rewards Portal</span>
+    <span class="wallet-icons-bar">
+      <button class="wallet-btn" id="phantom-btn" title="Phantom (Solana)">🦄</button>
+      <button class="wallet-btn" id="metamask-btn" title="MetaMask (Ethereum/BNB)">🦊</button>
+      <button class="wallet-btn" id="nami-btn" title="Nami (Cardano)">🎴</button>
+      <button class="wallet-btn" id="zorg-btn" title="ZORG">🪐</button>
+      <button class="wallet-btn" id="rednode-btn" title="REDNODE">🧬</button>
+      <button class="wallet-connect-btn" id="connect-wallet-btn">Connect Wallet</button>
+      <span class="wallet-status" id="wallet-status"></span>
+    </span>
+  </div>
+  <div class="subtitle">
+    Collect, spin, and trade your way to <b style="color:#fe3161;">legendary NFTs!</b><br>
+    <b>It's a grind. Only true fans earn legendary rewards!</b>
+  </div>
+  <div class="wallet-bar-top">
+    <label for="chain-select">Chain:</label>
+    <select id="chain-select">
+      <option value="solana">Solana (Phantom)</option>
+      <option value="ethereum">Ethereum (MetaMask)</option>
+      <option value="bsc">BNB Chain (MetaMask)</option>
+      <option value="cardano">Cardano (Nami/Eternl)</option>
+      <option value="zorg">ZORG</option>
+      <option value="rednode">REDNODE</option>
+    </select>
+    <button id="connect-wallet">🔗 Connect Wallet</button>
+    <button id="import-wallet">🔑 Import Wallet</button>
+    <input id="import-address" type="text" placeholder="Paste address and hit Enter" style="width:170px;display:none;">
+    <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+  </div>
+</header>
+<div class="rewards-bar-outer"><div id="rewards-bar" class="rewards-bar"></div></div>
+<div class="status-progress-outer">
+  <div class="status-progress-bar">
+    <span>🎸 <b id="count-guitar">0x</b></span>
+    <span>🥁 <b id="count-drum">0x</b></span>
+    <span>🔊 <b id="count-amp">0x</b></span>
+    <span>🎤 <b id="count-mic">0x</b></span>
+    <span>💿 <b id="count-vinyl">0x</b></span>
+    <span>🎟️ <b id="count-pass">0x</b></span>
+  </div>
+  <div class="status-progress-info">
+    <span>🌀 Spins: <b id="spin-count">1</b></span>
+    <span>🎤 Mics: <b id="mic-count">0/3</b></span>
+    <span>🌟 Legendary: <b id="legendary-count">0</b></span>
+  </div>
+  <div class="status-next">
+    <span>Next: <b id="next-target">Collect 🎸 Guitar (Need 3 more!)</b></span>
+  </div>
+  <div class="status-bottom-row">
+    <span>Points: <b id="points-bar">80</b></span>
+    <span> | Daily Streak: <b id="daily-streak-bar">1</b></span>
+  </div>
+</div>
+<div class="daily-claim-area">
+  <button class="daily-btn" id="daily-claim-btn">🎁 Spin Daily Wheel</button>
+  <div class="claim-result" id="claim-result"></div>
+  <button class="daily-btn" style="font-size:1em;padding:0.3em 1.5em;margin-top:0.1em;" onclick="showLegendaryModal()">⛏️ Craft Legendary NFT</button>
+</div>
+<div class="main-container">
+  <div class="market-listings">
+    <h3>🎸 Your Inventory</h3>
+    <div class="market-grid" id="inventory"></div>
+  </div>
+  <div class="market-listings">
+    <h3>🔥 Token Market (Buy or Sell NFTs for Points)</h3>
+    <div class="market-grid" id="token-market"></div>
+  </div>
+  <div class="market-listings">
+    <h3>🌟 Legendary Market (Need 3x each NFT + 3000 pts!)</h3>
+    <div class="market-grid" id="legendary-market"></div>
+  </div>
+</div>
+<div class="modal-bg" id="legendaryModalBG">
+  <div class="modal">
+    <span class="close-modal" onclick="closeModal('legendaryModalBG')">&times;</span>
+    <h3>Craft a Legendary NFT</h3>
+    <p style="font-size:1.08em;">
+      <b>You need 3x of each base NFT + 3000 points!</b><br>
+      Choose your legendary:
+    </p>
+    <select id="legendarySelect"></select>
+    <div class="modal-btns">
+      <button onclick="doLegendaryNFT()">Craft Legendary</button>
+    </div>
+  </div>
+</div>
+<div class="leaderboard">
+  <h3>🏆 Leaderboard</h3>
+  <table id="leaderboard-table"></table>
+</div>
+<div class="toast" id="toast"></div>
+  <footer>
+    <section class="dapp-list" id="dapps">
+      <article class="dapp-card">
+        <span class="dapp-icon">🎤</span>
+        <h2>Voice Changer</h2>
+        <p>Real-time audio manipulation</p>
+        <a class="launch-button" href="/voice-changer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">📋</span>
+        <h2>Quest Board</h2>
+        <p>Complete tasks, earn tokens</p>
+        <a class="launch-button" href="/quest-board">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎹</span>
+        <h2>NFT Mixer</h2>
+        <p>Blend tokens and NFTs into new forms</p>
+        <a class="launch-button" href="/token-mixer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🖼️</span>
+        <h2>NFT Viewer</h2>
+        <p>Display owned NFTs</p>
+        <a class="launch-button" href="/nft-viewer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎮</span>
+        <h2>Game Portal</h2>
+        <p>Play blockchain mini-games</p>
+        <a class="launch-button" href="/game">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🛒</span>
+        <h2>Marketplace</h2>
+        <p>Buy/sell items with tokens</p>
+        <a class="launch-button" href="/marketplace">Launch</a>
+      </article>
+    </section>
+    <p>© 2025 ChainES Labs — Rock Rewards Portal Challenge Edition</p>
+  </footer>
+<script>
+  const BASE_NFTS = [
+    {id:'guitar', label:"Guitar", emoji:"🎸", points:44, img:"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHB0eGd2a3VvY29rYTFmcXk2azFkZWh5YXk3ajg3ZDNwbHJvMHNmcDg5MyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/F6yj1CuArVko0L1Oow/giphy.gif"},
+    {id:'drum', label:"Drum Kit", emoji:"🥁", points:49, img:"https://media.giphy.com/media/l1J9wLpqANR6EFTHO/giphy.gif"},
+    {id:'amp', label:"Amp", emoji:"🔊", points:39, img:"https://media.giphy.com/media/XreQmk7ETCak0/giphy.gif"},
+    {id:'mic', label:"Mic", emoji:"🎤", points:65, img:"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2hnY2h2YmE1bmhvNG8zb3JkMHlyZ3l6NG1scHFtM3JmaXBvY3A0cCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/wDCXcH3Pe6Gcw8qWrl/giphy.gif"},
+    {id:'vinyl', label:"Vinyl", emoji:"💿", points:35, img:"https://media.giphy.com/media/ekjmhJUGH6Gms/giphy.gif"},
+    {id:'pass', label:"Pass", emoji:"🎟️", points:33, img:"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGh1dW80ZGtxNHFmeXN6Nnl0cGJqcm04cGdhZXNlcnl1MndjdHV3YjNuZiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/9r9NVdUto7YaswKo5B/giphy.gif"}
+  ];
+  const LEGENDARYS = [
+    {id:'legend-mic', label:"Legend Mic", emoji:"🎤", img:"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3JjZTFteGZyMWV4Ym9nY3UxaWhjYjF0NnFjc2xxenF2bHFwZ2Z0aCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l4KibWpBGWchSqCRy/giphy.gif"},
+    {id:'rare-axe', label:"Rare Axe", emoji:"🎸", img:"https://media.giphy.com/media/l4FGrZcLpN6dD8Qje/giphy.gif"},
+    {id:'stage-pass', label:"Stage Pass", emoji:"🎟️", img:"https://media.giphy.com/media/xT9IgzoKnwFNmISR8I/giphy.gif"}
+  ];
+
+  const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+  const CHAIN_KEY  = 'mixer_current_chain';
+  const WALLET_KEY = 'mixer_current_wallet';
+  const rewardsKey = (c,a) => `mixer_tokens_${c}_${a}`;
+  function getWalletRewards(c,a){
+    if(!a) return {};
+    const raw = localStorage.getItem(rewardsKey(c,a));
+    const base = Object.fromEntries(TRACK_IDS.map(id=>[id,25]));
+    if(!raw){ saveWalletRewards(c,a,base); return base; }
+    try{ return {...base, ...JSON.parse(raw)}; }catch{ return base; }
+  }
+  const saveWalletRewards=(c,a,o)=> a && localStorage.setItem(rewardsKey(c,a),JSON.stringify(o));
+
+  const REWARDS = [
+    {id:'voice',  emoji:'🎤', label:'Voice'},
+    {id:'beat',   emoji:'🥁', label:'Beat'},
+    {id:'fx',     emoji:'✨', label:'FX'},
+    {id:'melody', emoji:'🎶', label:'Melody'},
+    {id:'bass',   emoji:'🎸', label:'Bass'},
+    {id:'custom', emoji:'🧩', label:'Custom'}
+  ];
+
+  const GAME_NFT_KEY = `game_nfts_${window.APP_USER || 'guest'}`;
+  const LEGENDARY_NFT_KEY = `legendary_game_nfts_${window.APP_USER || 'guest'}`;
+  function loadInventory(){
+    try{ return JSON.parse(localStorage.getItem(GAME_NFT_KEY)) || []; }catch{return [];}
+  }
+  function saveInventory(){
+    localStorage.setItem(GAME_NFT_KEY, JSON.stringify(inventory));
+  }
+  function loadLegendary(){
+    try{ return JSON.parse(localStorage.getItem(LEGENDARY_NFT_KEY)) || []; }catch{return [];}
+  }
+  function saveLegendary(){
+    localStorage.setItem(LEGENDARY_NFT_KEY, JSON.stringify(legendaryInventory));
+  }
+
+  let points = 80, dailyStreak = 1, spins = 1;
+  let inventory = loadInventory();
+  let legendaryInventory = loadLegendary();
+  let lastSpin = null;
+
+  let currentChain  = 'solana';
+  let currentWallet = '';
+
+  const chainSelect        = document.getElementById('chain-select');
+  const connectBtn         = document.getElementById('connect-wallet');
+  const importBtn          = document.getElementById('import-wallet');
+  const importAddressInput = document.getElementById('import-address');
+  const walletMini         = document.getElementById('wallet-addr-mini');
+
+  function persistSession(){
+    localStorage.setItem(CHAIN_KEY , currentChain);
+    localStorage.setItem(WALLET_KEY, currentWallet||'');
+  }
+  function restoreSession(){
+    const savedChain  = localStorage.getItem(CHAIN_KEY);
+    const savedWallet = localStorage.getItem(WALLET_KEY);
+    if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+      currentChain = savedChain;
+      chainSelect.value = savedChain;
+    }
+    if(savedWallet){ currentWallet = savedWallet; }
+    updateWalletUI();
+  }
+
+  function setWalletStatus(msg){
+    document.getElementById('wallet-status').innerText = msg || '';
+  }
+  function updateWalletUI(){
+    setWalletStatus(currentWallet ? `🟢 ${currentWallet.slice(0,10)}... (${currentChain.toUpperCase()})` : '');
+    walletMini.textContent = currentWallet ? `${currentChain.toUpperCase()}: ` + (currentWallet.length>13 ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6) : currentWallet) : '';
+  }
+  document.getElementById('connect-wallet-btn').onclick = () => { alert('Click a wallet icon to connect!'); };
+  document.getElementById('phantom-btn').onclick = async () => {
+    if(!window.solana?.isPhantom){alert('Phantom not found.');return;}
+    const r = await window.solana.connect();
+    currentWallet=r.publicKey.toString(); currentChain='solana'; updateWalletUI(); persistSession(); loadLeaderboard(); };
+  document.getElementById('metamask-btn').onclick = async () => {
+    if(!window.ethereum){alert('Metamask not found.');return;}
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    const provider=new ethers.providers.Web3Provider(window.ethereum);
+    currentWallet = await provider.getSigner().getAddress(); currentChain='ethereum'; updateWalletUI(); persistSession(); loadLeaderboard(); };
+  document.getElementById('nami-btn').onclick = async () => {
+    const api = window.cardano?.nami || window.cardano?.eternl; if(!api){alert('Install Nami or Eternl.');return;}
+    const w = await api.enable(); currentWallet=toBech32("addr", await w.getChangeAddress()); currentChain='cardano'; updateWalletUI(); persistSession(); loadLeaderboard(); };
+  document.getElementById('zorg-btn').onclick = () => { currentWallet='zorgBand...'; currentChain='zorg'; updateWalletUI(); persistSession(); loadLeaderboard(); };
+  document.getElementById('rednode-btn').onclick = () => { currentWallet='rednodeHero...'; currentChain='rednode'; updateWalletUI(); persistSession(); loadLeaderboard(); };
+
+  chainSelect.addEventListener('change',e=>{
+    currentChain = e.target.value;
+    currentWallet = '';
+    walletMini.textContent = '';
+    importAddressInput.style.display='none';
+    persistSession();
+    renderRewardsBar(); loadLeaderboard();
+  });
+  connectBtn.addEventListener('click',async()=>{
+    if(currentChain==='solana')             await document.getElementById('phantom-btn').onclick();
+    else if(['ethereum','bsc'].includes(currentChain)) await document.getElementById('metamask-btn').onclick();
+    else if(currentChain==='cardano')       await document.getElementById('nami-btn').onclick();
+    else if(currentChain==='zorg')          document.getElementById('zorg-btn').onclick();
+    else                                    document.getElementById('rednode-btn').onclick();
+    if(currentWallet) getWalletRewards(currentChain,currentWallet);
+    persistSession();
+    renderRewardsBar(); loadLeaderboard();
+  });
+  importBtn.addEventListener('click',()=>{
+    importAddressInput.style.display='inline-block';
+    importAddressInput.value='';
+    importAddressInput.focus();
+  });
+  importAddressInput.addEventListener('keydown',e=>{
+    if(e.key!=='Enter' || !importAddressInput.value.trim()) return;
+    currentWallet = importAddressInput.value.trim();
+    importAddressInput.style.display='none';
+    persistSession();
+    updateWalletUI();
+    renderRewardsBar(); loadLeaderboard();
+  });
+
+  function renderRewardsBar(){
+    const bar = document.getElementById('rewards-bar');
+    if(!currentWallet){
+      bar.innerHTML = '<span style="opacity:0.6;">Connect wallet to view your rewards</span>';
+      return;
+    }
+  const rewards = getWalletRewards(currentChain,currentWallet);
+  bar.innerHTML = REWARDS.map(r=>{
+    const val = rewards[r.id] || 0;
+    return `<div class="reward-chip${r.class ? ' '+r.class : ''}"><span class="emoji">${r.emoji}</span><span class="label">${r.label}</span><span class="supply-box">${val}</span></div>`;
+  }).join('');
+  }
+
+  function recordPoints(amt){
+    if(!currentWallet) return;
+    fetch('/api/claim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wallet:currentWallet, chain:currentChain, reward:amt})}).catch(()=>{});
+  }
+  function loadLeaderboard(){
+    fetch('/api/leaderboard').then(r=>r.json()).then(data=>{
+      const rows=data.map((r,i)=>`<tr><td>${i+1}</td><td>${r.wallet.slice(0,6)}...${r.wallet.slice(-4)}</td><td>${r.chain.toUpperCase()}</td><td>${r.rewards}</td></tr>`).join('');
+      document.getElementById('leaderboard-table').innerHTML=`<tr><th>#</th><th>Wallet</th><th>Chain</th><th>Rewards</th></tr>`+rows;
+    }).catch(()=>{});
+  }
+
+  function renderInventory() {
+    const inv = document.getElementById('inventory');
+    inv.innerHTML = '';
+    BASE_NFTS.forEach(item => {
+      const own = inventory.find(i=>i.id===item.id);
+      inv.innerHTML += `
+        <div class="nft-card">
+          <div class="badge">${item.label}</div>
+          <h4>${item.emoji} ${item.label} ${own&&own.count>1?`<span style="color:#ffe054;">x${own.count}</span>`:""}</h4>
+          <div class="nft-layer-stack"><img class="gif" src="${item.img}" alt="${item.label}"></div>
+          <div class="supply">${own?own.count:0} owned</div>
+          ${own&&own.count>0?`<button onclick="tradeNFT('${item.id}')">Sell for ${item.points} pts</button>`:""}
+        </div>
+      `;
+    });
+    legendaryInventory.forEach(item => {
+      inv.innerHTML += `
+        <div class="nft-card legendary">
+          <div class="legend">${item.label}</div>
+          <h4>${item.emoji} ${item.label}</h4>
+          <div class="nft-layer-stack"><img class="gif" src="${item.img}" alt="${item.label}"></div>
+          <div class="supply">Legendary</div>
+        </div>
+      `;
+    });
+    updateStatusBar();
+  }
+  function renderTokenMarket() {
+    const m = document.getElementById('token-market');
+    m.innerHTML = '';
+    BASE_NFTS.forEach(item => {
+      m.innerHTML += `
+        <div class="nft-card">
+          <div class="badge">${item.label}</div>
+          <h4>${item.emoji} ${item.label}</h4>
+          <div class="nft-layer-stack"><img class="gif" src="${item.img}" alt="${item.label}"></div>
+          <div class="supply">Buy: ${item.points} pts</div>
+          <button onclick="buyNFT('${item.id}')">Buy</button>
+        </div>
+      `;
+    });
+  }
+  function renderLegendaryMarket() {
+    const m = document.getElementById('legendary-market');
+    m.innerHTML = '';
+    LEGENDARYS.forEach(item => {
+      m.innerHTML += `
+        <div class="nft-card legendary">
+          <div class="legend">${item.label}</div>
+          <h4>${item.emoji} ${item.label}</h4>
+          <div class="nft-layer-stack"><img class="gif" src="${item.img}" alt="${item.label}"></div>
+          <div class="supply">Need: 3x each NFT + 3000 pts</div>
+          <button onclick="showLegendaryModal()">Craft</button>
+        </div>
+      `;
+    });
+  }
+  document.getElementById('daily-claim-btn').onclick = claimDaily;
+  function claimDaily() {
+    if (lastSpin && Date.now() - lastSpin < 1000*60*60*20) {
+      showToast("Come back tomorrow!");
+      return;
+    }
+    lastSpin = Date.now();
+    let roll = Math.random();
+    if (roll < 0.18) {
+      let itemRoll = Math.random();
+      let item;
+      if(itemRoll < 0.12) item = BASE_NFTS.find(n=>n.id==="mic");
+      else if(itemRoll < 0.29) item = BASE_NFTS.find(n=>n.id==="guitar");
+      else if(itemRoll < 0.46) item = BASE_NFTS.find(n=>n.id==="drum");
+      else if(itemRoll < 0.63) item = BASE_NFTS.find(n=>n.id==="amp");
+      else if(itemRoll < 0.80) item = BASE_NFTS.find(n=>n.id==="vinyl");
+      else item = BASE_NFTS.find(n=>n.id==="pass");
+      addNFT(item);
+      recordPoints(item.points);
+      showToast(`You won a "${item.label}" NFT!`);
+      document.getElementById('claim-result').innerText = `🎉 New NFT: ${item.label}`;
+    } else {
+      let pts = Math.floor(Math.random()*21)+10;
+      points += pts;
+      recordPoints(pts);
+      showToast(`You won +${pts} points!`);
+      document.getElementById('claim-result').innerText = `+${pts} points`;
+    }
+    dailyStreak++; spins++;
+    renderInventory();
+    renderTokenMarket();
+    renderLegendaryMarket();
+    document.getElementById('points').innerText = points;
+    document.getElementById('daily-streak').innerText = `Daily Streak: ${dailyStreak}`;
+    updateStatusBar();
+    loadLeaderboard();
+  }
+
+  function addNFT(item) {
+    let found = inventory.find(i=>i.id===item.id);
+    if(found) found.count++;
+    else inventory.push({id:item.id,label:item.label,count:1,img:item.img});
+    saveInventory();
+  }
+  function buyNFT(id) {
+    let item = BASE_NFTS.find(x=>x.id===id);
+    if(points < item.points) { showToast("Not enough points!"); return; }
+    points -= item.points;
+    addNFT(item);
+    showToast(`Bought "${item.label}" for ${item.points} pts!`);
+    renderInventory();
+    renderTokenMarket();
+    updateStatusBar();
+    saveInventory();
+  }
+  function tradeNFT(id) {
+    let item = BASE_NFTS.find(x=>x.id===id);
+    let inv = inventory.find(x=>x.id===id);
+    if(inv && inv.count>0) {
+      points += item.points;
+      recordPoints(item.points);
+      inv.count--;
+      if(inv.count <= 0) inventory = inventory.filter(x=>x.id!==id);
+      showToast(`Sold "${item.label}" for ${item.points} pts`);
+      renderInventory();
+      renderTokenMarket();
+      updateStatusBar();
+      saveInventory();
+      loadLeaderboard();
+    }
+  }
+  function showLegendaryModal() {
+    let eligible = BASE_NFTS.every(n=>{
+      let inv = inventory.find(i=>i.id===n.id);
+      return inv && inv.count>=3;
+    });
+    document.getElementById('legendarySelect').innerHTML =
+      LEGENDARYS.map(x=>`<option value="${x.id}">${x.emoji} ${x.label}</option>`).join('');
+    document.getElementById('legendaryModalBG').style.display = 'flex';
+    if (!eligible || points < 3000) {
+      document.getElementById('legendarySelect').disabled = true;
+      showToast("You need 3x of each NFT + 3000 pts to craft!");
+    } else {
+      document.getElementById('legendarySelect').disabled = false;
+    }
+  }
+  function doLegendaryNFT() {
+    if(points < 3000) { showToast("Not enough points!"); return; }
+    let missing = BASE_NFTS.find(n=>{
+      let inv = inventory.find(i=>i.id===n.id);
+      return !inv || inv.count<3;
+    });
+    if(missing) { showToast("Missing 3x "+missing.label); return; }
+    BASE_NFTS.forEach(n=>{
+      let inv = inventory.find(i=>i.id===n.id);
+      inv.count -= 3;
+      if(inv.count<=0) inventory = inventory.filter(i=>i.id!==n.id);
+    });
+    saveInventory();
+    let val = document.getElementById('legendarySelect').value;
+    let choice = LEGENDARYS.find(l=>l.id===val);
+    legendaryInventory.push({ id:choice.id, label: choice.label, emoji: choice.emoji, img: choice.img });
+    saveLegendary();
+    points -= 3000;
+    recordPoints(3000);
+    closeModal('legendaryModalBG');
+    showToast(`You crafted "${choice.label}"!`);
+    renderInventory();
+    updateStatusBar();
+    document.getElementById('points').innerText = points;
+    loadLeaderboard();
+  }
+  function closeModal(id){ document.getElementById(id).style.display='none'; }
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    t.innerText = msg; t.style.display = "block";
+    setTimeout(()=>{ t.style.display="none"; }, 2000);
+  }
+  function updateStatusBar() {
+    let counts = {}; BASE_NFTS.forEach(n=>{ counts[n.id]=0; });
+    inventory.forEach(item=>{ counts[item.id] = item.count; });
+    document.getElementById('count-guitar').innerText = (counts.guitar||0)+'x';
+    document.getElementById('count-drum').innerText = (counts.drum||0)+'x';
+    document.getElementById('count-amp').innerText = (counts.amp||0)+'x';
+    document.getElementById('count-mic').innerText = (counts.mic||0)+'x';
+    document.getElementById('count-vinyl').innerText = (counts.vinyl||0)+'x';
+    document.getElementById('count-pass').innerText = (counts.pass||0)+'x';
+    document.getElementById('spin-count').innerText = spins;
+    document.getElementById('mic-count').innerText = (counts.mic||0)+'/3';
+    document.getElementById('legendary-count').innerText = legendaryInventory.length;
+    let next = '';
+    let need = BASE_NFTS.map(n=>{ let want=3, have=counts[n.id]||0; return {id:n.id,label:n.label,emoji:n.emoji,need: Math.max(0,want-have)}; }).filter(n=>n.need>0).sort((a,b)=>b.need-a.need||a.label.localeCompare(b.label));
+    if(need.length) next = `Collect ${need[0].emoji} ${need[0].label} (Need ${need[0].need} more!)`;
+    else next = "Ready to Craft a Legendary!";
+    document.getElementById('next-target').innerText = next;
+    document.getElementById('points-bar').innerText = points;
+    document.getElementById('daily-streak-bar').innerText = dailyStreak;
+  }
+  restoreSession();
+  renderRewardsBar();
+  renderInventory();
+  renderTokenMarket();
+  renderLegendaryMarket();
+  updateStatusBar();
+  loadLeaderboard();
+</script>
+<script>
+  window.APP_USER = "{{ session_username }}";
+  window.APP_WALLET = "{{ session_wallet }}";
+</script>
+<script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

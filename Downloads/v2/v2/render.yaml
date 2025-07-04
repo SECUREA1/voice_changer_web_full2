@@ -1,0 +1,89 @@
+services:
+  - type: web
+    name: VOICE3
+    env: docker
+    autoDeploy: true
+
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: SECRET_KEY
+        value: your_secret_key
+      - key: APP_DB_PATH
+        value: /data/admin.db
+
+      # Ethereum
+      - key: ETH_RPC
+        value: https://mainnet.infura.io/v3/e252a3114f6f48a6aa8376e2e5b9dbfb
+      - key: ETH_PRIVATE_KEY
+        value: 0xYourPrivateKey
+      - key: ETH_NFT_CONTRACT
+        value: 0xYourContractAddress
+      - key: ETH_MARKETPLACE_CONTRACT
+        value: 0xYourMarketplace
+      - key: ETH_USDT_ADDRESS
+        value: 0xdAC17F958D2ee523a2206206994597C13D831ec7
+      - key: ETH_TOKEN_ADDRESS
+        value: 0xdAC17F958D2ee523a2206206994597C13D831ec7
+      - key: ETH_TOKEN
+        value: USDT
+
+      # Binance Smart Chain
+      - key: BSC_RPC
+        value: https://bsc-rpc.publicnode.com
+      - key: BSC_PRIVATE_KEY
+        value: 0xYourBscPrivateKey
+      - key: BSC_NFT_CONTRACT
+        value: 0xYourBscContract
+      - key: BSC_MARKETPLACE_CONTRACT
+        value: 0xYourBscMarketplace
+      - key: BSC_USDT_ADDRESS
+        value: 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
+      - key: BSC_TOKEN_ADDRESS
+        value: 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
+      - key: BSC_TOKEN
+        value: USDT
+
+      # Solana
+      - key: SOLANA_RPC
+        value: https://solana-mainnet.rpcpool.com
+      - key: SOLANA_PRIVATE_KEY
+        value: your_solana_private_key
+
+      # Cardano / Blockfrost
+      - key: BLOCKFROST_KEY
+        value: mainneterVI0Jo3p2fj4MRSVewR8I5dhLKsKNAI
+      - key: CARDANO_API
+        value: https://cardano-mainnet.blockfrost.io/api/v0
+      - key: ADA_USDT_ASSET
+        value: lovelace
+      - key: CARDANO_PAYMENT_SKEY
+        value: /path/to/payment.skey
+      - key: CARDANO_PAYMENT_VKEY
+        value: /path/to/payment.vkey
+      - key: CARDANO_POLICY_SKEY
+        value: /path/to/policy.skey
+      - key: CARDANO_POLICY_VKEY
+        value: /path/to/policy.vkey
+
+      # Bitcoin
+      - key: BTC_RPC_URL
+        value: http://127.0.0.1:8332
+      - key: BTC_RPC_USER
+        value: bitcoin
+      - key: BTC_RPC_PASSWORD
+        value: password
+
+      # App logic
+      - key: AUDIO_MODEL_LOCAL
+        value: "0"
+      - key: POOL_WALLET
+        value: 0xPoolWallet
+      - key: PLATFORM_WALLET
+        value: 0xPlatformWallet
+      - key: POOL_FEE_BPS
+        value: "100"
+      - key: PLATFORM_FEE_BPS
+        value: "250"
+      - key: PLATFORM_FEE_RATE
+        value: "0.01"

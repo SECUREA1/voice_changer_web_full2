@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Active Users</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: linear-gradient(to right,#7c0a02,#260101);
+      color: #ffd700;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      margin: 0;
+      min-height: 100vh;
+    }
+    h1 { margin-top: 1.2em; }
+    #user-list { list-style:none; padding:0; }
+    #user-list li { padding:0.2em 0; }
+  </style>
+</head>
+<body>
+  <h1>👥 Active Users</h1>
+  <p id="user-count">0 users online</p>
+  <ul id="user-list"></ul>
+  <canvas id="user-chart" width="400" height="200"></canvas>
+  <!-- Load Socket.IO from the official CDN -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='libs/chart.umd.js') }}"></script>
+  <script src="{{ url_for('static', filename='active-users.js') }}"></script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

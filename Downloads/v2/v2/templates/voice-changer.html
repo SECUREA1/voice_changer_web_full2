@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎙️ OmConsole Voice Changer</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+  <!-- Load Socket.IO before inline scripts -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+  <script>
+    const SOLANA_RPC = "{{ solana_rpc }}";
+  </script>
+  <style>
+    body { font-family: 'Segoe UI',sans-serif; margin:0; background:#17181a; color:#ffd700; }
+    .container { max-width:640px; margin:40px auto 0 auto; background:#232324; border-radius:16px; padding:2.2rem 1.3rem 1.6rem 1.3rem; box-shadow:0 7px 45px #000b; border:2px solid #ffd70055; }
+    .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .wallet-btn { border-radius:8px; padding:10px 22px; font-weight:bold; font-size:1.04em; background:#19191b; color:#ffd700; border:2px solid #ffd700; cursor:pointer; transition:background 0.18s; }
+    .wallet-btn:hover { background:#ffd700; color:#19191b; }
+    .wallet-label { margin-left:12px; font-size:1.04em; color:#ffd700cc; }
+    h1 { font-size:2.2rem; margin:0 0 10px 0; }
+    h3 { margin:0 0 9px 0; }
+    .section { background:#252526cc; border-radius:13px; margin-bottom:27px; padding:23px 13px 20px 13px; border:1.3px solid #ffd70044; }
+    .section-title { font-size:1.17em; color:#ffd700; font-weight:bold; margin-bottom:5px; }
+    .main-btn { background:#b30000; color:#ffd700; border-radius:8px; border:2px solid #ffd70099; font-size:1.06em; font-weight:bold; margin-right:12px; padding:10px 18px; cursor:pointer; }
+    .main-btn:disabled { background:#333; color:#999; }
+    .main-btn:hover:enabled { background:#ff0000; color:#fff; }
+    .fx-btn { background:#19191b; color:#ffd700; border-radius:8px; border:2px solid #ffd70077; font-size:0.96em; font-weight:bold; margin:6px 6px; padding:8px 14px; cursor:pointer; transition:background 0.16s; }
+    .fx-btn:hover { background:#ffd70033; }
+    .fx-btn.active { background:#ffd700; color:#19191b; }
+    .tuner label { display:block; margin:7px 0; color:#ffd700cc; font-weight:600; font-size:0.96em; }
+    .tuner input[type="range"] { width:100%; }
+    .audio-visual { margin:10px 0 0 0; }
+    #live-fx-player, #recorded-player { width:100%; margin-top:7px; }
+    .live-status { margin-left:12px; color:#00b3b3; font-weight:bold; }
+    .live-indicator { background:#e00000; color:#fff; border:none; border-radius:6px; padding:3px 8px; margin-left:6px; font-size:0.85em; font-weight:bold; cursor:pointer; display:none; }
+    .live-indicator.paused { background:#555; }
+    .mint-status { color:#ffd700; margin-top:8px; }
+    .token-row { margin-top:10px; }
+    .input-sm { padding:7px 11px; border-radius:6px; border:1.5px solid #ffd70099; background:#232324; color:#ffd700; }
+    footer { text-align:center; color:#ffcc70; font-size:1em; margin:1.2em 0 0.2em 0; letter-spacing:0.03em; background:#181818; border-top:2px solid #ffd70044; box-shadow:0 -2px 24px #0008; padding:29px 0 20px 0; }
+    .footer-wallet-bar { display:flex; gap:12px; justify-content:center; align-items:center; margin-bottom:18px; flex-wrap:wrap; }
+    .footer-wallet-bar button { padding:8px 22px; border-radius:8px; border:2px solid #ffd700; background:#19191b; color:#ffd700; font-size:1.06em; font-weight:bold; cursor:pointer; transition:background 0.18s; }
+    .footer-wallet-bar button:hover { background:#ffd700; color:#19191b; }
+    .footer-wallet-bar .wallet-label { margin:0 0 0 10px; color:#ffd700cc; }
+    /* Dapp Footer Navigation */
+    .dapp-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.3em 2.1em;
+      margin: 2.4em auto 1.6em auto;
+      max-width: 980px;
+      background: rgba(30,0,0,0.07);
+      border-radius: 22px;
+      padding: 2em 1.5em 1em 1.5em;
+      box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+    }
+    .dapp-card {
+      background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border: 2.1px solid #ffd70088;
+      border-radius: 14px;
+      box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+      text-align: center;
+      padding: 1.3em 1.1em 1.2em 1.1em;
+      margin-bottom: 0.2em;
+      transition: box-shadow .17s, transform .16s;
+    }
+    .dapp-card:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+      border-color: #ffd700ee;
+      background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon {
+      font-size: 2.05em;
+      display: block;
+      margin-bottom: 0.18em;
+      filter: drop-shadow(0 0 9px #ffd70090);
+    }
+    .dapp-card a {
+      margin-top: 1.0em;
+      display: inline-block;
+      padding: 0.65em 1.65em;
+      border-radius: 8px;
+      background: #b30000;
+      color: #ffd700;
+      border: 1.7px solid #ffd700ab;
+      font-weight: bold;
+      font-size: 1em;
+      text-decoration: none;
+      transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+      box-shadow: 0 1.5px 8px #ffd70024;
+    }
+    .dapp-card a:hover, .dapp-card a:focus {
+      background: #ffd700;
+      color: #b30000;
+      box-shadow: 0 0 16px #ffd70088;
+    }
+    @media (max-width: 780px) { .dapp-list { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+    @media (max-width: 530px) { .dapp-list { grid-template-columns: 1fr; } .dapp-card { margin-bottom: 1.4em; } }
+    .wallet-bar-top{display:flex;align-items:center;justify-content:flex-end;background:rgba(30,30,30,0.92);border-bottom:2.5px solid #ffd700;padding:.73rem 1.7rem;border-radius:0 0 17px 17px;font-size:1.05em;min-height:48px;box-shadow:0 5px 28px #ffd70016;margin-bottom:20px;flex-wrap:wrap;gap:1.1em}
+    .wallet-bar-top select,.wallet-bar-top button,.wallet-bar-top input[type="text"]{padding:7px 13px;font-size:1rem;border-radius:7px;border:1px solid #ffd70060;background:#181818;color:#ffd700;outline:none;transition:border .2s}
+    .wallet-bar-top button{background:#b30000;color:#ffd700;border:1.5px solid #ffd700;font-weight:600;cursor:pointer;transition:background .18s}
+    .wallet-bar-top button:hover,.wallet-bar-top select:focus{background:#ff0000;border:1.5px solid #ffd700}
+    .wallet-addr-mini{font-weight:600;background:#260101;border-radius:6px;border:1.1px solid #ffd700;padding:4px 13px;font-size:1.04em;}
+    .rewards-bar-outer{width:100%;display:flex;justify-content:center;margin-bottom:24px;}
+    .rewards-bar{margin:0 auto 1.8em auto;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0.85em;justify-content:center;align-items:flex-end;max-width:100vw;background:linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);border-radius:18px;box-shadow:0 2px 22px #ffd70021, 0 0 40px #b3000011;border:2px solid #ffd700cc;padding:.6em 1em;scrollbar-width:none;-ms-overflow-style:none;}
+    .rewards-bar::-webkit-scrollbar{display:none}
+    .reward-chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:54px;max-width:90px;margin:0 0.04em;padding:0.13em 0.12em 0.26em 0.13em;background:none;border:none;font-size:1em;cursor:pointer;position:relative;border-radius:13px;box-shadow:0 2px 14px #ffd70017;transition:transform .14s, box-shadow .14s;border:1.5px solid transparent}
+    .reward-chip:hover{transform:scale(1.10);box-shadow:0 4px 36px #ffd700e0,0 2px 12px #b3000050;border-color:#ffd700;}
+    .reward-chip .emoji{font-size:1.6em;margin-bottom:.02em;filter:drop-shadow(0 0 8px #ffd70063);animation:pulseGlow 1.5s infinite alternate;text-shadow:0 0 12px #ffd700a8}
+    .reward-chip .label{font-size:1em;font-weight:700;color:#ffd700;margin:0.09em 0 0.11em 0;white-space:nowrap;text-align:center;text-shadow:0 1px 7px #b3000032}
+    .reward-chip .supply-box{background:linear-gradient(90deg, #fffbe6 60%, #ffd700 100%);color:#b30000;border-radius:9px;box-shadow:0 2px 12px #ffd70060,0 0 8px #b3000023;font-weight:bold;padding:0.21em 0.92em 0.17em 0.92em;font-size:1.05em;margin-top:0.05em;min-width:34px;text-align:center;border:2px solid #ffd70099;animation:supplyGlow 2.2s infinite alternate}
+    @keyframes pulseGlow{from{filter:drop-shadow(0 0 8px #ffd70090);}to{filter:drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow{from{box-shadow:0 2px 12px #ffd70041;}to{box-shadow:0 0 20px #ffd700ee,0 2px 12px #ffd70030;}}
+    @media (max-width:600px){ .container{padding:8px;} .header-bar{flex-direction:column;align-items:stretch;gap:7px;} .dapp-list{flex-direction:column;gap:13px;} .dapp-card{min-width:unset;width:96vw;} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-bar">
+      <span style="font-size:1.31em; color:#ffd700;">🎙️ OmConsole Voice Changer DApp</span>
+    </div>
+
+    <div class="wallet-bar-top">
+      <label for="chain-select">Chain:</label>
+      <select id="chain-select">
+        <option value="solana">Solana (Phantom)</option>
+        <option value="ethereum">Ethereum (MetaMask)</option>
+        <option value="bsc">BNB Chain (MetaMask)</option>
+        <option value="cardano">Cardano (Nami/Eternl)</option>
+        <option value="zorg">ZORG</option>
+        <option value="rednode">REDNODE</option>
+      </select>
+      <button id="connect-wallet">🔗 Connect Wallet</button>
+      <button id="import-wallet">🔑 Import Wallet</button>
+      <input id="import-address" type="text" placeholder="Paste address and hit Enter" style="display:none;width:170px;">
+      <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+    </div>
+
+    <div class="rewards-bar-outer"><div id="rewards-bar" class="rewards-bar"></div></div>
+
+    <!-- 🟡 LIVE VOICE CHANGER -->
+    <div class="section">
+      <div class="section-title">🎛️ Live Voice Changer</div>
+      <button class="main-btn" id="start-fx">Start Live FX</button>
+      <button class="main-btn" id="stop-fx" disabled>Stop</button>
+      <a id="live-recording-link" href="#" download style="display:none;margin-left:10px;">Download Space</a>
+      <span class="live-status" id="live-fx-status"></span>
+      <div class="audio-visual" id="fx-audio-div"></div>
+      <small style="display:block;margin-top:4px;color:#ffdb70b2">Your voice is streamed live and changed in real‑time (through Python backend).</small>
+
+      <!-- FX PRESETS -->
+      <div style="margin-top:12px;">
+        <button class="fx-btn active" data-effect="none">None</button>
+        <button class="fx-btn" data-effect="robot">Robot</button>
+        <button class="fx-btn" data-effect="chipmunk">Chipmunk</button>
+        <button class="fx-btn" data-effect="deep">Deep</button>
+        <button class="fx-btn" data-effect="squirrel">Squirrel</button>
+      </div>
+
+      <!-- PARAMETER TUNER -->
+      <div class="tuner" style="margin-top:15px;">
+        <label>Pitch <input id="pitch" type="range" min="-12" max="12" step="0.1" value="0"></label>
+        <label>Speed <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+        <label>Volume <input id="volume" type="range" min="0" max="2" step="0.05" value="1"></label>
+        <label>Echo <input id="echo" type="range" min="0" max="1" step="0.05" value="0"></label>
+      </div>
+
+      <!-- LIVE USERS -->
+      <div style="margin-top:18px;">
+        <div class="section-title">👥 Live Users</div>
+        <div id="live-user-list" style="font-size:0.95em;"></div>
+        <div id="listener-list" style="font-size:0.9em;margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <!-- 🟡 RECORD SECTION -->
+    <div class="section">
+      <div class="section-title">📼 Record Your Voice</div>
+      <button class="main-btn" id="rec-start">Start Recording</button>
+      <button class="main-btn" id="rec-stop" disabled>Stop Recording</button>
+      <button class="main-btn" id="rec-play" disabled>Playback</button>
+      <div class="audio-visual">
+        <audio id="recorded-player" controls style="display:none;"></audio>
+      </div>
+
+      <!-- CROPPING PANEL -->
+      <div id="crop-panel" style="display:none;margin-top:12px;">
+        <canvas id="crop-bar" width="540" height="70" style="width:100%;background:#181818;border-radius:8px;border:2px solid #ffd700;"></canvas>
+        <div style="margin:0.5rem 0 0.7rem 0;">
+          <span id="crop-start">0.00s</span>
+          <span style="margin:0 1rem;">→</span>
+          <span id="crop-end">0.00s</span>
+        </div>
+        <button class="main-btn" id="preview-crop">Preview Crop</button>
+        <button class="main-btn" id="save-crop">Save Crop</button>
+        <a id="download-crop" class="main-btn" download="cropped.wav" style="display:none;">Download</a>
+        <audio id="crop-player" controls style="display:none;margin-top:8px;width:100%;"></audio>
+      </div>
+    </div>
+
+    <!-- 🟡 SUPPORT SECTION -->
+    <div class="section">
+      <div class="section-title">💖 Support the Build</div>
+      <p style="margin-bottom:12px;">Add to the development pool by sending a tip. Funds go directly to the live wallet shown below.</p>
+      <div class="token-row" style="margin-bottom:8px;">
+        <select id="token-select" class="input-sm">
+          <option value="">-- Select Token --</option>
+        </select>
+        <input id="token-amount" class="input-sm" type="number" min="0" step="0.00001" placeholder="Amount" style="width:90px;">
+        <button class="main-btn" id="send-token">Send</button>
+      </div>
+      <div style="font-size:0.95em;line-height:1.6em;">
+        <b>Address:</b> <span id="token-address" class="wallet-label"></span>
+        <button id="copy-address" class="fx-btn" style="margin-left:6px;">Copy</button>
+      </div>
+      <div id="tip-wallet-list" style="font-size:0.92em;line-height:1.6em;margin-top:10px;"></div>
+    </div>
+
+    <!-- 🟡 MINT NFT -->
+    <div class="section">
+      <div class="section-title">🎵 Mint Your Voice NFT</div>
+      <button class="main-btn" id="mint-nft">Mint My Voice</button>
+      <span class="mint-status" id="mint-status"></span>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-wallet-bar">
+      <button class="wallet-btn" id="footer-connect-wallet">🔗 Connect Wallet</button>
+      <span class="wallet-label" id="footer-wallet"></span>
+    </div>
+    <div class="dapp-list">
+      <article class="dapp-card">
+        <span class="dapp-icon">🎤</span>
+        <h2>Voice Changer</h2>
+        <p>Real-time audio manipulation</p>
+        <a href="/voice-changer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">📋</span>
+        <h2>Quest Board</h2>
+        <p>Complete tasks, earn tokens</p>
+        <a href="/quest-board">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎹</span>
+        <h2>NFT Mixer</h2>
+        <p>Blend tokens and NFTs into new forms</p>
+        <a href="/token-mixer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🖼️</span>
+        <h2>NFT Viewer</h2>
+        <p>Display owned NFTs</p>
+        <a href="/nft-viewer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎮</span>
+        <h2>Game Portal</h2>
+        <p>Play blockchain mini-games</p>
+        <a href="/game">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🛒</span>
+        <h2>Marketplace</h2>
+        <p>Buy/sell items with tokens</p>
+        <a href="/marketplace">Launch</a>
+      </article>
+    </div>
+  </footer>
+
+<script>
+/* ------------------ WALLET / REWARDS ------------------ */
+const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+const REWARDS = [
+  {id:'voice',  emoji:'🎤', label:'Voice'},
+  {id:'beat',   emoji:'🥁', label:'Beat'},
+  {id:'fx',     emoji:'✨', label:'FX'},
+  {id:'melody', emoji:'🎶', label:'Melody'},
+  {id:'bass',   emoji:'🎸', label:'Bass'},
+  {id:'custom', emoji:'🧩', label:'Custom'}
+];
+
+const CHAIN_KEY  = 'mixer_current_chain';
+const WALLET_KEY = 'mixer_current_wallet';
+const rewardsKey = (c,a)=>`mixer_tokens_${c}_${a}`;
+function getWalletRewards(chain,addr){
+  if(!addr) return {};
+  const raw = localStorage.getItem(rewardsKey(chain,addr));
+  const base = Object.fromEntries(TRACK_IDS.map(id=>[id,25]));
+  if(!raw){ saveWalletRewards(chain,addr,base); return base; }
+  try{ return {...base, ...JSON.parse(raw)}; }catch{ return base; }
+}
+const saveWalletRewards = (c,a,obj)=> a && localStorage.setItem(rewardsKey(c,a),JSON.stringify(obj));
+
+let currentChain = 'solana';
+let currentWallet = '';
+
+const chainSelect        = document.getElementById('chain-select');
+const connectBtn         = document.getElementById('connect-wallet');
+const importBtn          = document.getElementById('import-wallet');
+const importAddressInput = document.getElementById('import-address');
+const walletMini         = document.getElementById('wallet-addr-mini');
+let TIP_WALLETS = {};
+const CHAIN_TOKEN = {
+  solana : 'SOL',
+  ethereum: 'ETH',
+  bsc    : 'BNB',
+  cardano: 'ADA',
+  zorg   : 'BTC',
+  rednode: 'BTC'
+};
+
+function updateSelectedTokenAddress(){
+  const token = document.getElementById('token-select').value;
+  document.getElementById('token-address').textContent = token ? (TIP_WALLETS[token] || '') : '';
+}
+
+function renderTipWalletList(){
+  const list = document.getElementById('tip-wallet-list');
+  if(!list) return;
+  list.innerHTML = Object.entries(TIP_WALLETS).map(([t,a])=>`<div><b>${t}:</b> ${a}</div>`).join('');
+}
+
+function refreshTokenOptions(){
+  const sel = document.getElementById('token-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Select Token --</option>';
+  const t = CHAIN_TOKEN[currentChain];
+  if(t && TIP_WALLETS[t]){
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    sel.appendChild(opt);
+    if(prev===t) sel.value = t;
+  }
+  updateSelectedTokenAddress();
+}
+
+async function loadTipWallets(){
+  try{
+    const r = await fetch('/api/tip-wallets');
+    if(r.ok){
+      TIP_WALLETS = await r.json();
+      refreshTokenOptions();
+      renderTipWalletList();
+      updateSelectedTokenAddress();
+    }
+  }catch(e){ console.error('Failed to load tip wallets', e); }
+}
+
+function persistSession(){
+  localStorage.setItem(CHAIN_KEY , currentChain);
+  localStorage.setItem(WALLET_KEY, currentWallet||'');
+}
+function restoreSession(){
+  const savedChain  = localStorage.getItem(CHAIN_KEY );
+  const savedWallet = localStorage.getItem(WALLET_KEY);
+  if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+    currentChain = savedChain;
+    chainSelect.value = savedChain;
+  }
+  if(savedWallet){
+    currentWallet = savedWallet;
+    updateWalletDisplay();
+  }
+  refreshTokenOptions();
+  updateSelectedTokenAddress();
+}
+
+chainSelect.addEventListener('change',e=>{
+  currentChain = e.target.value;
+  currentWallet='';
+  updateWalletDisplay();
+  importAddressInput.style.display='none';
+  persistSession();
+  renderRewardsBar();
+  refreshTokenOptions();
+  updateSelectedTokenAddress();
+});
+
+  connectBtn.addEventListener('click',()=>connectWallet());
+  document.getElementById('footer-connect-wallet').onclick = ()=>connectWallet();
+  document.getElementById('token-select').addEventListener('change',updateSelectedTokenAddress);
+  importBtn.addEventListener('click',()=>{
+  importAddressInput.style.display='inline-block';
+  importAddressInput.value='';
+  importAddressInput.focus();
+});
+importAddressInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && importAddressInput.value.trim()){
+    currentWallet = importAddressInput.value.trim();
+    importAddressInput.style.display='none';
+    updateWalletDisplay();
+    if(currentWallet) getWalletRewards(currentChain,currentWallet);
+    persistSession();
+    renderRewardsBar();
+  }
+});
+
+async function connectWallet(){
+  if(currentChain==='solana')             await connectPhantom();
+  else if(['ethereum','bsc'].includes(currentChain)) await connectMetamask(currentChain);
+  else if(currentChain==='cardano')       await connectCardano();
+  else                                     await connectCustom();
+  if(currentWallet) getWalletRewards(currentChain,currentWallet);
+  persistSession();
+  renderRewardsBar();
+}
+
+async function connectPhantom(){
+  if(!window.solana?.isPhantom){alert('Phantom not found.');return;}
+  const r = await window.solana.connect();
+  currentWallet = r.publicKey.toString();
+  updateWalletDisplay();
+}
+async function connectMetamask(chain){
+  if(!window.ethereum){alert('Metamask not found.');return;}
+  await window.ethereum.request({method:'eth_requestAccounts'});
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  currentWallet  = await provider.getSigner().getAddress();
+  updateWalletDisplay();
+}
+async function connectCardano(){
+  const api = window.cardano?.nami || window.cardano?.eternl;
+  if(!api){alert('Install Nami or Eternl.');return;}
+  const walletApi = await api.enable();
+  currentWallet   = toBech32("addr", await walletApi.getChangeAddress());
+  updateWalletDisplay();
+}
+async function connectCustom(){
+  currentWallet = prompt(`Enter your ${currentChain.toUpperCase()} wallet address:`)||'';
+  updateWalletDisplay();
+}
+
+function updateWalletDisplay(){
+  const shown = currentWallet && currentWallet.length>13 ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6) : currentWallet;
+  walletMini.textContent  = currentWallet ? `${currentChain.toUpperCase()}: ${shown}` : '';
+  document.getElementById('footer-wallet').textContent = currentWallet ? `Wallet: ${shown}` : '';
+}
+
+function renderRewardsBar(){
+  const bar = document.getElementById('rewards-bar');
+  if(!currentWallet){ bar.innerHTML='<span style="opacity:0.6;">Connect wallet to view your rewards</span>'; return; }
+  const rewards = getWalletRewards(currentChain,currentWallet);
+  bar.innerHTML = REWARDS.map(r=>{
+    const val = rewards[r.id] || 0;
+    return `<div class="reward-chip"><span class="emoji">${r.emoji}</span><span class="label">${r.label}</span><span class="supply-box">${val}</span></div>`;
+  }).join('');
+}
+
+restoreSession();
+renderRewardsBar();
+loadTipWallets();
+
+const sio = io();
+sio.on('live_users', updateLiveUsers);
+sio.on('voice_chunk', handleVoiceChunk);
+sio.on('listener_update', updateListenerList);
+sio.on('tuned_in', d => {
+  document.getElementById('live-fx-status').textContent = `Listening to ${d.host}`;
+});
+sio.on('recording_saved', d => {
+  const link = document.getElementById('live-recording-link');
+  if(link){
+    link.href = d.url;
+    if(d.filename) link.download = d.filename;
+    link.style.display = 'inline';
+  }
+});
+
+let livePlayerRemote = null;
+let liveMediaSource = null;
+let liveSourceBuffer = null;
+let liveQueue = [];
+let audioCtxFallback = null;
+let fallbackQueue = [];
+let fallbackPlaying = false;
+let currentTuneUser = '';
+let livePaused = false;
+
+function playFallbackQueue(){
+  if(fallbackPlaying || fallbackQueue.length === 0 || !audioCtxFallback) return;
+  const buf = fallbackQueue.shift();
+  fallbackPlaying = true;
+  const src = audioCtxFallback.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtxFallback.destination);
+  src.onended = () => {
+    fallbackPlaying = false;
+    playFallbackQueue();
+  };
+  src.start();
+}
+
+// Socket.IO already initialized above
+
+/* ------------------ LIVE FX ------------------ */
+let fxStream = null, fxPlayer = null, fxAudioCtx = null, fxRecorder = null;
+
+// Effect preset buttons
+Array.from(document.querySelectorAll('.fx-btn')).forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.fx-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fetch('/voice_changer/api/params', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ effect: btn.dataset.effect })
+    });
+  });
+});
+
+// Parameter sliders
+['pitch','speed','volume','echo'].forEach(id => {
+  const el = document.getElementById(id);
+  el.oninput = () => {
+    const payload = {};
+    payload[id === 'pitch' ? 'pitch_shift' : id] = parseFloat(el.value);
+    fetch('/voice_changer/api/params', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify(payload)
+    });
+  };
+});
+
+document.getElementById('start-fx').onclick = async () => {
+  document.getElementById('live-fx-status').textContent = "Connecting...";
+  document.getElementById('start-fx').disabled = true;
+  document.getElementById('stop-fx').disabled = false;
+  const recLink = document.getElementById('live-recording-link');
+  if(recLink) recLink.style.display = 'none';
+  fxStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  sio.emit('start_live');
+  fxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = fxAudioCtx.createMediaStreamSource(fxStream);
+  const dst = fxAudioCtx.createMediaStreamDestination();
+  src.connect(dst);
+  // also route the live stream to the speakers so the host hears it
+  src.connect(fxAudioCtx.destination);
+  let recOpts = { mimeType: 'audio/webm; codecs=opus' };
+  if(!MediaRecorder.isTypeSupported(recOpts.mimeType)){
+    recOpts = { mimeType: 'audio/webm' };
+    if(!MediaRecorder.isTypeSupported(recOpts.mimeType)){
+      recOpts = {};
+    }
+  }
+  try {
+    fxRecorder = new MediaRecorder(dst.stream, recOpts);
+  } catch(e){
+    fxRecorder = new MediaRecorder(dst.stream);
+  }
+  fxRecorder.ondataavailable = async e => {
+    try {
+      const buf = await e.data.arrayBuffer();
+      sio.emit('voice_chunk', { host: APP_USER, chunk: buf, mime: e.data.type });
+    } catch(err) {
+      console.error('Failed to read audio chunk', err);
+    }
+  };
+  fxRecorder.start(250);
+  if(!fxPlayer){
+    fxPlayer = document.createElement('audio');
+    fxPlayer.id = 'live-fx-player';
+    fxPlayer.autoplay = true;
+    fxPlayer.controls = true;
+    document.getElementById('fx-audio-div').textContent = "";
+    document.getElementById('fx-audio-div').appendChild(fxPlayer);
+  }
+  fxPlayer.srcObject = dst.stream;
+  document.getElementById('live-fx-status').textContent = "Live FX started";
+};
+
+document.getElementById('stop-fx').onclick = () => {
+  if(fxRecorder){
+    fxRecorder.addEventListener('stop', () => {
+      if(sio) sio.emit('stop_live');
+    }, {once:true});
+    fxRecorder.stop();
+  } else if(sio){
+    sio.emit('stop_live');
+  }
+  if(fxStream) fxStream.getTracks().forEach(t => t.stop());
+  if(fxPlayer) fxPlayer.srcObject = null;
+  document.getElementById('live-fx-status').textContent = "";
+  document.getElementById('fx-audio-div').textContent = "";
+  document.getElementById('start-fx').disabled = false;
+  document.getElementById('stop-fx').disabled = true;
+  if(fxAudioCtx) fxAudioCtx.close();
+};
+
+function updateLiveUsers(list){
+  const el = document.getElementById('live-user-list');
+  el.innerHTML = list.filter(u => u !== APP_USER).map(u =>
+    `<div id="live-entry-${u}">${u} <button onclick="tuneIn('${u}')">Tune In</button>`+
+    ` <button id="live-btn-${u}" class="live-indicator" onclick="togglePause()">LIVE</button>`+
+    ` <span id="listener-count-${u}"></span></div>`).join('');
+}
+
+function initLivePlayback(){
+  if(window.MediaSource){
+    liveMediaSource = new MediaSource();
+    liveSourceBuffer = null;
+    liveQueue = [];
+    if(!livePlayerRemote){
+      livePlayerRemote = document.createElement('audio');
+      livePlayerRemote.autoplay = true;
+      livePlayerRemote.controls = true;
+      document.getElementById('fx-audio-div').appendChild(livePlayerRemote);
+    } else {
+      livePlayerRemote.pause();
+    }
+    livePlayerRemote.src = URL.createObjectURL(liveMediaSource);
+    liveMediaSource.addEventListener('sourceopen', () => {
+      if(liveQueue.length > 0 && liveSourceBuffer && !liveSourceBuffer.updating){
+        liveSourceBuffer.appendBuffer(liveQueue.shift());
+      }
+    });
+  } else {
+    liveMediaSource = null;
+    liveSourceBuffer = null;
+    liveQueue = [];
+    audioCtxFallback = new (window.AudioContext || window.webkitAudioContext)();
+    fallbackQueue = [];
+    fallbackPlaying = false;
+    if(!livePlayerRemote){
+      livePlayerRemote = document.createElement('audio');
+      livePlayerRemote.autoplay = true;
+      livePlayerRemote.controls = true;
+      document.getElementById('fx-audio-div').appendChild(livePlayerRemote);
+    } else {
+      livePlayerRemote.pause();
+    }
+  }
+}
+
+function handleVoiceChunk(data){
+  if(data.host !== currentTuneUser) return;
+  const buf = new Uint8Array(data.chunk);
+  const chunk = buf.buffer;
+  if(liveSourceBuffer){
+    if(liveSourceBuffer.updating){
+      liveQueue.push(chunk);
+    } else {
+      liveSourceBuffer.appendBuffer(chunk);
+    }
+  } else if(liveMediaSource && liveMediaSource.readyState === 'open'){
+    const type = data.mime || 'audio/webm; codecs=opus';
+    if(!liveSourceBuffer && MediaSource.isTypeSupported(type)){
+      liveSourceBuffer = liveMediaSource.addSourceBuffer(type);
+      liveSourceBuffer.mode = 'sequence';
+      liveSourceBuffer.addEventListener('updateend', () => {
+        if(liveQueue.length > 0 && !liveSourceBuffer.updating){
+          liveSourceBuffer.appendBuffer(liveQueue.shift());
+        }
+      });
+    }
+    if(liveSourceBuffer){
+      if(liveSourceBuffer.updating){
+        liveQueue.push(chunk);
+      } else {
+        liveSourceBuffer.appendBuffer(chunk);
+      }
+    } else {
+      const blob = new Blob([buf], {type});
+      if(!livePlayerRemote){
+        livePlayerRemote = document.createElement('audio');
+        livePlayerRemote.autoplay = true;
+        livePlayerRemote.controls = true;
+        document.getElementById('fx-audio-div').appendChild(livePlayerRemote);
+      }
+      if(livePlayerRemote.canPlayType(type)){
+        livePlayerRemote.src = URL.createObjectURL(blob);
+        livePlayerRemote.play();
+      } else {
+        if(!audioCtxFallback){
+          audioCtxFallback = new (window.AudioContext || window.webkitAudioContext)();
+          fallbackQueue = [];
+          fallbackPlaying = false;
+        }
+        audioCtxFallback.decodeAudioData(chunk.slice(0)).then(b => {
+          fallbackQueue.push(b);
+          playFallbackQueue();
+        }).catch(()=>{});
+      }
+    }
+  } else {
+    const mime = data.mime || 'audio/webm';
+    const blob = new Blob([buf], {type: mime});
+    if(!livePlayerRemote){
+      livePlayerRemote = document.createElement('audio');
+      livePlayerRemote.autoplay = true;
+      livePlayerRemote.controls = true;
+      document.getElementById('fx-audio-div').appendChild(livePlayerRemote);
+    }
+    if(livePlayerRemote.canPlayType(mime)){
+      livePlayerRemote.src = URL.createObjectURL(blob);
+      livePlayerRemote.play();
+    } else {
+      if(!audioCtxFallback){
+        audioCtxFallback = new (window.AudioContext || window.webkitAudioContext)();
+        fallbackQueue = [];
+        fallbackPlaying = false;
+      }
+      audioCtxFallback.decodeAudioData(chunk.slice(0)).then(b => {
+        fallbackQueue.push(b);
+        playFallbackQueue();
+      }).catch(()=>{});
+    }
+  }
+}
+
+function tuneIn(user){
+  currentTuneUser = user;
+  livePaused = false;
+  document.querySelectorAll('.live-indicator').forEach(el => el.style.display = 'none');
+  const liveBtn = document.getElementById(`live-btn-${user}`);
+  if(liveBtn) {
+    liveBtn.style.display = 'inline-block';
+    liveBtn.classList.remove('paused');
+    liveBtn.textContent = 'LIVE';
+  }
+  if(window.MediaSource && MediaSource.isTypeSupported('audio/webm; codecs=opus')){
+    initLivePlayback();
+  } else {
+    liveMediaSource = null;
+    liveSourceBuffer = null;
+    liveQueue = [];
+    audioCtxFallback = new (window.AudioContext || window.webkitAudioContext)();
+    if(!livePlayerRemote){
+      livePlayerRemote = document.createElement('audio');
+      livePlayerRemote.autoplay = true;
+      livePlayerRemote.controls = true;
+      document.getElementById('fx-audio-div').appendChild(livePlayerRemote);
+    } else {
+      livePlayerRemote.pause();
+    }
+  }
+  sio.emit('tune_in', {host: user});
+}
+
+function togglePause(){
+  if(!livePlayerRemote) return;
+  const btn = document.getElementById(`live-btn-${currentTuneUser}`);
+  if(livePlayerRemote.paused){
+    livePlayerRemote.play();
+    if(btn){ btn.classList.remove('paused'); btn.textContent = 'LIVE'; }
+    livePaused = false;
+  } else {
+    livePlayerRemote.pause();
+    if(btn){ btn.classList.add('paused'); btn.textContent = 'PAUSED'; }
+    livePaused = true;
+  }
+}
+
+function updateListenerList(data){
+  if(data.host !== currentTuneUser) return;
+  const el = document.getElementById('listener-list');
+  if(el){
+    el.innerHTML = data.listeners.map(n => `<div>${n}</div>`).join('');
+  }
+  const countEl = document.getElementById(`listener-count-${data.host}`);
+  if(countEl){
+    countEl.textContent = `(${data.listeners.length})`;
+  }
+}
+
+/* ------------------ RECORDING ------------------ */
+let recStream = null, recRecorder = null, recChunks = [], recBlob = null;
+let audioBuffer = null, cropStart = 0, cropEnd = 0, cropBlob = null;
+let cropBar = null, cropCtx = null;
+
+document.getElementById('rec-start').onclick = async () => {
+  recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  recRecorder = new MediaRecorder(recStream);
+  recChunks = [];
+  recRecorder.ondataavailable = e => recChunks.push(e.data);
+  recRecorder.onstop = () => {
+    recBlob = new Blob(recChunks, { type:'audio/wav' });
+    const player = document.getElementById('recorded-player');
+    player.src = URL.createObjectURL(recBlob);
+    player.style.display = 'block';
+    document.getElementById('rec-play').disabled = false;
+    player.play();
+    decodeForCrop();
+  };
+  recRecorder.start();
+  document.getElementById('rec-start').disabled = true;
+  document.getElementById('rec-stop').disabled = false;
+};
+
+document.getElementById('rec-stop').onclick = () => {
+  if(recRecorder && recRecorder.state === 'recording') recRecorder.stop();
+  document.getElementById('rec-start').disabled = false;
+  document.getElementById('rec-stop').disabled = true;
+};
+
+document.getElementById('rec-play').onclick = () => {
+  document.getElementById('recorded-player').play();
+};
+
+/* ---------- CROP UTILS ---------- */
+function decodeForCrop(){
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    ac.decodeAudioData(ev.target.result).then(buf => {
+      audioBuffer = buf;
+      cropStart = 0;
+      cropEnd = buf.duration;
+      cropBar = document.getElementById('crop-bar');
+      cropCtx = cropBar.getContext('2d');
+      document.getElementById('crop-start').textContent = '0.00s';
+      document.getElementById('crop-end').textContent = buf.duration.toFixed(2) + 's';
+      drawCropBar();
+      setupCropEvents();
+      cropBlob = null;
+      document.getElementById('crop-player').style.display = 'none';
+      document.getElementById('download-crop').style.display = 'none';
+      document.getElementById('crop-panel').style.display = 'block';
+    });
+  };
+  reader.readAsArrayBuffer(recBlob);
+}
+
+function drawCropBar(playPos = null){
+  if(!cropCtx || !audioBuffer) return;
+  const W = cropBar.width, H = cropBar.height;
+  cropCtx.clearRect(0,0,W,H);
+  cropCtx.save();
+  cropCtx.translate(0,H/2);
+  cropCtx.strokeStyle = '#ffd700';
+  cropCtx.lineWidth = 1;
+  cropCtx.beginPath();
+  const data = audioBuffer.getChannelData(0);
+  const step = Math.floor(data.length / W);
+  for(let i=0; i<W; i++){
+    let min = 1.0, max = -1.0;
+    for(let j=0; j<step; j++){
+      const d = data[(i*step)+j] || 0;
+      if(d < min) min = d;
+      if(d > max) max = d;
+    }
+    cropCtx.moveTo(i, min*H/2);
+    cropCtx.lineTo(i, max*H/2);
+  }
+  cropCtx.stroke();
+  cropCtx.restore();
+
+  const x1 = timeToX(cropStart), x2 = timeToX(cropEnd);
+  cropCtx.fillStyle = 'rgba(255,215,0,0.13)';
+  cropCtx.fillRect(x1,0,x2-x1,H);
+  drawCropHandle(x1,H);
+  drawCropHandle(x2,H);
+  cropCtx.fillStyle = '#ffd700';
+  cropCtx.font = 'bold 13px Segoe UI';
+  cropCtx.textAlign = 'center';
+  cropCtx.fillText(cropStart.toFixed(2)+'s',x1,15);
+  cropCtx.fillText(cropEnd.toFixed(2)+'s',x2,15);
+
+  if(playPos!==null){
+    const px = timeToX(playPos);
+    cropCtx.strokeStyle = '#ff0033';
+    cropCtx.lineWidth = 2;
+    cropCtx.beginPath();
+    cropCtx.moveTo(px,0);
+    cropCtx.lineTo(px,H);
+    cropCtx.stroke();
+  }
+}
+
+function drawCropHandle(x,H){
+  cropCtx.save();
+  cropCtx.strokeStyle = '#b30000';
+  cropCtx.lineWidth = 2.5;
+  cropCtx.beginPath();
+  cropCtx.moveTo(x,0);
+  cropCtx.lineTo(x,H);
+  cropCtx.stroke();
+  cropCtx.beginPath();
+  cropCtx.arc(x,H/2,9,0,2*Math.PI);
+  cropCtx.fillStyle = '#ffd700';
+  cropCtx.globalAlpha = 0.85;
+  cropCtx.fill();
+  cropCtx.globalAlpha = 1;
+  cropCtx.strokeStyle = '#b30000';
+  cropCtx.stroke();
+  cropCtx.restore();
+}
+
+function timeToX(t){ return Math.max(0, Math.min(cropBar.width-1, t / audioBuffer.duration * cropBar.width)); }
+function xToTime(x){ return Math.max(0, Math.min(audioBuffer.duration, x / cropBar.width * audioBuffer.duration)); }
+
+function setupCropEvents(){
+  let dragging = false, handle = null;
+  cropBar.onmousedown = e => {
+    const rect = cropBar.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ds = Math.abs(x - timeToX(cropStart));
+    const de = Math.abs(x - timeToX(cropEnd));
+    if(ds < 14){ dragging = true; handle = 'start'; }
+    else if(de < 14){ dragging = true; handle = 'end'; }
+    else { previewAt(xToTime(x)); }
+  };
+  cropBar.onmousemove = e => {
+    if(!dragging) return;
+    const rect = cropBar.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const t = xToTime(x);
+    if(handle === 'start') cropStart = Math.max(0, Math.min(cropEnd-0.01, t));
+    else if(handle === 'end') cropEnd = Math.max(cropStart+0.01, Math.min(audioBuffer.duration, t));
+    document.getElementById('crop-start').textContent = cropStart.toFixed(2)+'s';
+    document.getElementById('crop-end').textContent = cropEnd.toFixed(2)+'s';
+    drawCropBar();
+  };
+  document.onmouseup = () => { dragging = false; handle = null; };
+}
+
+function previewAt(t){
+  if(!audioBuffer) return;
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const source = ac.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(ac.destination);
+  source.start(0, t, 1.5);
+  const startTime = performance.now();
+  function animate(ts){
+    const elapsed = (ts - startTime) / 1000;
+    drawCropBar(t + elapsed);
+    if(elapsed < 1.5) requestAnimationFrame(animate); else drawCropBar();
+  }
+  animate(performance.now());
+  source.onended = () => drawCropBar();
+}
+
+document.getElementById('preview-crop').onclick = () => previewCrop();
+function previewCrop(){
+  if(!audioBuffer) return alert('No audio to preview.');
+  const ac2 = new (window.AudioContext || window.webkitAudioContext)();
+  const len = cropEnd - cropStart;
+  const startSample = Math.floor(cropStart * audioBuffer.sampleRate);
+  const endSample = Math.floor(cropEnd * audioBuffer.sampleRate);
+  const cropLen = endSample - startSample;
+  const cropBuf = ac2.createBuffer(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+  for(let ch=0; ch<audioBuffer.numberOfChannels; ch++)
+    cropBuf.getChannelData(ch).set(audioBuffer.getChannelData(ch).slice(startSample, endSample));
+  const source = ac2.createBufferSource();
+  source.buffer = cropBuf;
+  source.connect(ac2.destination);
+  source.start(0);
+  const startTime = performance.now();
+  function animate(ts){
+    const elapsed = (ts - startTime) / 1000;
+    drawCropBar(cropStart + elapsed);
+    if(elapsed < len) requestAnimationFrame(animate); else drawCropBar();
+  }
+  animate(performance.now());
+  source.onended = () => drawCropBar();
+
+  // render offline for player preview
+  const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+  const oSource = offline.createBufferSource();
+  oSource.buffer = cropBuf;
+  oSource.connect(offline.destination);
+  oSource.start();
+  offline.startRendering().then(r => {
+    const wavBlob = bufferToWavBlob(r);
+    const el = document.getElementById('crop-player');
+    el.src = URL.createObjectURL(wavBlob);
+    el.style.display = 'block';
+    el.play();
+  });
+}
+
+document.getElementById('save-crop').onclick = () => saveCrop();
+function saveCrop(){
+  if(!audioBuffer) return alert('No audio recorded to crop.');
+  if(cropEnd <= cropStart) return alert('End must be after Start.');
+  const ac2 = new (window.AudioContext || window.webkitAudioContext)();
+  const startSample = Math.floor(cropStart * audioBuffer.sampleRate);
+  const endSample = Math.floor(cropEnd * audioBuffer.sampleRate);
+  const cropLen = endSample - startSample;
+  const cropBuf = ac2.createBuffer(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+  for(let ch=0; ch<audioBuffer.numberOfChannels; ch++)
+    cropBuf.getChannelData(ch).set(audioBuffer.getChannelData(ch).slice(startSample, endSample));
+  const offline = new OfflineAudioContext(cropBuf.numberOfChannels, cropLen, audioBuffer.sampleRate);
+  const source = offline.createBufferSource();
+  source.buffer = cropBuf;
+  source.connect(offline.destination);
+  source.start();
+  offline.startRendering().then(r => {
+    cropBlob = bufferToWavBlob(r);
+    const el = document.getElementById('crop-player');
+    el.src = URL.createObjectURL(cropBlob);
+    el.style.display = 'block';
+    const link = document.getElementById('download-crop');
+    link.href = el.src;
+    link.style.display = 'inline-block';
+  });
+}
+
+function bufferToWavBlob(buffer){
+  const numChannels = buffer.numberOfChannels, sampleRate = buffer.sampleRate, bitDepth = 16;
+  const length = buffer.length * numChannels * 2 + 44;
+  const view = new DataView(new ArrayBuffer(length));
+  const writeStr = (v, off, s) => { for(let i=0; i<s.length; i++) v.setUint8(off+i, s.charCodeAt(i)); };
+  let o = 0; writeStr(view,o,'RIFF'); o+=4;
+  view.setUint32(o, length-8, true); o+=4;
+  writeStr(view,o,'WAVE'); o+=4; writeStr(view,o,'fmt '); o+=4;
+  view.setUint32(o,16,true); o+=4;
+  view.setUint16(o,1,true); o+=2;
+  view.setUint16(o,numChannels,true); o+=2;
+  view.setUint32(o,sampleRate,true); o+=4;
+  view.setUint32(o,sampleRate*numChannels*2,true); o+=4;
+  view.setUint16(o,numChannels*2,true); o+=2;
+  view.setUint16(o,bitDepth,true); o+=2;
+  writeStr(view,o,'data'); o+=4;
+  view.setUint32(o,length-o-4,true); o+=4;
+  for(let i=0; i<buffer.length; i++)
+    for(let ch=0; ch<numChannels; ch++){
+      let sample = buffer.getChannelData(ch)[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      sample = sample < 0 ? sample * 32768 : sample * 32767;
+      view.setInt16(o, sample, true); o+=2;
+    }
+  return new Blob([view], { type:'audio/wav' });
+}
+
+/* ------------------ TOKEN & MINT ------------------ */
+async function sendNativeToken(chain,dest,amount){
+  if(['ethereum','bsc'].includes(chain)){
+    const value = ethers.utils.parseEther(amount).toHexString();
+    return window.ethereum.request({
+      method:'eth_sendTransaction',
+      params:[{from:currentWallet,to:dest,value}]
+    });
+  }
+  if(chain==='solana'){
+    if(!window.solana?.isPhantom) return null;
+    const conn = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+    const tx = new solanaWeb3.Transaction().add(
+      solanaWeb3.SystemProgram.transfer({
+        fromPubkey: window.solana.publicKey,
+        toPubkey: new solanaWeb3.PublicKey(dest),
+        lamports: solanaWeb3.LAMPORTS_PER_SOL * Number(amount)
+      })
+    );
+    const {signature} = await window.solana.signAndSendTransaction(tx);
+    await conn.confirmTransaction(signature);
+    return signature;
+  }
+  return null;
+}
+
+async function mintAudio(){
+  if(!currentWallet) return alert('Connect wallet first!');
+  if(!recBlob && !cropBlob) return alert('Please record first!');
+  document.getElementById('mint-status').textContent = 'Minting, please wait...';
+  const formData = new FormData();
+  formData.append('audio', (cropBlob || recBlob), 'voice.wav');
+  formData.append('wallet', currentWallet);
+  const resp = await fetch('/api/mint-voice-nft', { method:'POST', body:formData });
+  const result = await resp.json().catch(() => ({ success:false, message:'Mint error.' }));
+  document.getElementById('mint-status').textContent = result.success ? 'Minted! ' + (result.tx_hash || '') : (result.message || 'Mint failed');
+}
+
+document.getElementById('send-token').onclick = async () => {
+  const token = document.getElementById('token-select').value;
+  const amount = document.getElementById('token-amount').value;
+  if(!currentWallet) return alert('Connect wallet first!');
+  if(!token || !amount || Number(amount) <= 0) return alert('Enter token and amount.');
+  const dest = TIP_WALLETS[token];
+  if(!dest) return alert('No destination wallet configured for this token.');
+  let txId = null;
+  try{ txId = await sendNativeToken(currentChain,dest,amount); }
+  catch(e){ console.error(e); alert('Transfer failed: '+e.message); return; }
+  if(!txId) alert(`Send ${amount} ${token} from ${currentWallet} to ${dest}.`);
+  else {
+    alert(`Transaction submitted: ${txId}`);
+    fetch('/api/record-payment', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wallet:currentWallet, chain:currentChain, token, amount, tx_id:txId})
+    });
+  }
+  await mintAudio();
+};
+
+document.getElementById('mint-nft').onclick = mintAudio;
+
+updateWalletDisplay();
+document.getElementById('copy-address').addEventListener('click', () => {
+  const addr = document.getElementById('token-address').textContent.trim();
+  if(!addr) return alert('Select a token first.');
+  navigator.clipboard.writeText(addr).then(() => alert('Address copied to clipboard'));
+});
+</script>
+<script>
+  window.APP_USER = "{{ session_username }}";
+  window.APP_WALLET = "{{ session_wallet }}";
+</script>
+</body>
+</html>

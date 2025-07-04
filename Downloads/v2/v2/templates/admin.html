@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+    <style>
+        body { font-family: Arial, sans-serif; padding:40px; background:#1a1a1a; color:#ffd700; }
+        .container { max-width:600px; margin:0 auto; background:#222; padding:20px; border-radius:8px; border:2px solid #ffd700; }
+        h1 { text-align:center; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <p>Welcome, {{ user }}.</p>
+    <p>This page can be modified to include custom admin settings.</p>
+    <form id="settings-form">
+        <h2>Tuner Settings</h2>
+        <label>
+            APIs Enabled
+            <input type="checkbox" name="api_enabled"/>
+        </label><br>
+        <label>
+            Contracts Enabled
+            <input type="checkbox" name="contracts_enabled"/>
+        </label><br>
+        <label>
+            Policy Level
+            <select name="policy_level">
+                <option value="standard">Standard</option>
+                <option value="strict">Strict</option>
+                <option value="open">Open</option>
+            </select>
+        </label><br>
+        <button type="submit">Save</button>
+    </form>
+</div>
+<script>
+  window.APP_USER = "{{ session_username }}";
+  window.APP_WALLET = "{{ session_wallet }}";
+</script>
+<script src="{{ url_for('static', filename='session.js') }}"></script>
+<script src="{{ url_for('static', filename='admin_settings.js') }}"></script>
+</body>
+</html>

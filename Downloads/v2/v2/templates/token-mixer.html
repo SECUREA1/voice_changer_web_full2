@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🧬 Token Mixer Pro – Timeline Editor</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+  <style>
+    body { font-family:'Segoe UI',sans-serif; background:linear-gradient(to right,#7c0a02,#260101); color:#ffd700; margin:0; min-height:100vh; transition: background 0.5s, color 0.5s;}
+    h1,h2,h3 { text-align:center; margin:0; }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 23px 37px 13px 27px;
+      background: linear-gradient(90deg, #181818 84%, #ffd70008 100%);
+      border-radius: 0 0 30px 30px; box-shadow: 0 5px 36px #b3000014;
+      min-height: 48px; position: sticky; top:0; z-index:90;
+    }
+    .header-row h1 {
+      font-size: 2em; font-weight:900; color:#ffd700;
+      text-shadow: 0 2px 18px #b3000035, 0 0 32px #ffd70045; letter-spacing:0.01em;
+    }
+    .wallet-bar-top {
+      display: flex; align-items: center; justify-content: flex-end;
+      background: rgba(30,30,30,0.92); border-bottom: 2.5px solid #ffd700;
+      padding: 0.73rem 2.1rem 0.73rem 1.4rem; border-radius: 0 0 17px 17px;
+      font-size: 1.11em; min-height: 48px; box-shadow: 0 5px 28px #ffd70016;
+      flex-wrap: wrap; gap: 1em;
+    }
+    .wallet-bar-top > * { margin-left: 1.4em; }
+    .wallet-bar-top select, .wallet-bar-top button, .wallet-bar-top input[type="text"] {
+      padding: 7px 13px; font-size: 1rem; border-radius: 7px; border: 1px solid #ffd70060;
+      background: #181818; color: #ffd700; outline: none; box-shadow: none; transition: border 0.2s;
+    }
+    .wallet-bar-top button { background: #b30000; color: #ffd700; border: 1.5px solid #ffd700; cursor:pointer; font-weight:600; transition: background 0.18s;}
+    .wallet-bar-top button:hover, .wallet-bar-top select:focus { background: #ff0000; border: 1.5px solid #ffd700; }
+    .wallet-addr-mini {
+      font-weight:600; background: #260101; border-radius: 6px; border: 1.1px solid #ffd700;
+      padding: 4px 13px; font-size:1.04em; margin-left: 1.2em;
+    }
+    .rewards-bar-outer{width:100%;display:flex;justify-content:center;margin:1.8rem 0 1.1rem 0;position:relative;z-index:10;}
+    .rewards-bar{margin:0 auto 1.8em auto;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0.85em;justify-content:center;align-items:flex-end;max-width:100vw;background:linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);border-radius:18px;box-shadow:0 2px 22px #ffd70021, 0 0 40px #b3000011;border:2.1px solid #ffd700cc;padding:0.62em 0.8em 0.38em 0.8em;scrollbar-width:none;-ms-overflow-style:none;}
+    .rewards-bar::-webkit-scrollbar{display:none;}
+    .reward-chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:54px;max-width:90px;margin:0 0.04em;padding:0.13em 0.12em 0.26em 0.13em;background:none;border:none;font-size:1em;cursor:pointer;position:relative;border-radius:13px;box-shadow:0 2px 14px #ffd70017;transition:transform .14s, box-shadow .14s;border:1.5px solid transparent;}
+    .reward-chip:hover,.reward-chip:focus{transform:scale(1.10);box-shadow:0 4px 36px #ffd700e0,0 2px 12px #b3000050;z-index:2;border-color:#ffd700;}
+    .reward-chip .emoji{font-size:1.6em;margin-bottom:0.02em;filter:drop-shadow(0 0 8px #ffd70063);animation:pulseGlow 1.5s infinite alternate;text-shadow:0 0 12px #ffd700a8;}
+    .reward-chip .label{font-size:1em;font-weight:700;color:#ffd700;margin:0.09em 0 0.11em 0;white-space:nowrap;text-align:center;text-shadow:0 1px 7px #b3000032;}
+    .reward-chip .supply-box{background:linear-gradient(90deg, #fffbe6 60%, #ffd700 100%);color:#b30000;border-radius:9px;box-shadow:0 2px 12px #ffd70060,0 0 8px #b3000023;font-weight:bold;padding:0.21em 0.92em 0.17em 0.92em;font-size:1.05em;margin-top:0.05em;min-width:34px;text-align:center;border:2px solid #ffd70099;animation:supplyGlow 2.2s infinite alternate;}
+    @keyframes pulseGlow{from{filter:drop-shadow(0 0 8px #ffd70090);}to{filter:drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow{from{box-shadow:0 2px 12px #ffd70041;}to{box-shadow:0 0 20px #ffd700ee,0 2px 12px #ffd70030;}}
+    @media (max-width: 900px) {
+      .rewards-bar { gap: 0.25em; padding: 0.5em 0.1em;}
+      .reward-chip {
+        flex-direction: column; min-width: 82px; min-height: 85px; font-size: 0.99em;
+        padding: 0.38em 0.4em 0.36em 0.4em; gap: 0.12em; justify-content: center; align-items: center;
+      }
+        .reward-chip .emoji { font-size: 1.36em;}
+        .reward-chip .label { font-size: 1.09em;}
+        .reward-chip .supply-box { font-size: 1.03em; padding: 0.19em 1.05em 0.16em 1.05em;}
+    }
+    @media (max-width: 560px) {
+      .reward-chip { min-width: 72px; padding: 0.21em 0.12em; font-size: 0.91em; }
+        .reward-chip .emoji { font-size: 1.18em;}
+        .reward-chip .label { font-size: 1.00em;}
+      .wallet-bar-top { font-size: 1em; padding: 0.73rem 0.5rem; }
+    }
+    @media (max-width: 800px) {
+      .header-row { flex-direction: column; align-items: stretch; padding:12px 4vw 13px 4vw; }
+      .wallet-bar-top { margin-top:9px; }
+    }
+    @media (max-width: 480px) {
+      .wallet-bar-top { flex-direction: column; align-items: flex-start; gap:0.6em; }
+      .wallet-bar-top > * { margin-left:0; }
+    }
+    .mixer-container { max-width: 100vw; margin: 22px auto 36px auto; padding: 2rem; background:rgba(255,215,0,0.03); border-radius:16px; border:2px solid #ffd700; box-sizing:border-box; }
+    .track { margin-bottom: 32px; padding: 14px 10px 24px 10px; background: rgba(30,30,30,0.94); border: 1.5px solid #ffd70077; border-radius: 13px; width: 100%; box-sizing: border-box; position:relative;}
+    .track label { font-weight: bold; font-size:1.08em; margin-bottom:7px; display:block;}
+    .timeline-canvas { width: 100%; min-width:350px; max-width:100vw; height: 72px; border-radius:8px; border:2px solid #ffd700; background:#181818; cursor: pointer; display:block; }
+    .drag-drop { margin: 12px 0 6px 0; font-size:1em; color:#ffd700b7; }
+    .dragover { background:#ffd70033 !important; border-color:#ffd700 !important;}
+    /* Dapp Footer Navigation */
+    .dapp-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.3em 2.1em;
+      margin: 2.4em auto 1.6em auto;
+      max-width: 980px;
+      background: rgba(30,0,0,0.07);
+      border-radius: 22px;
+      padding: 2em 1.5em 1em 1.5em;
+      box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+    }
+    .dapp-card {
+      background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border: 2.1px solid #ffd70088;
+      border-radius: 14px;
+      box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+      text-align: center;
+      padding: 1.3em 1.1em 1.2em 1.1em;
+      margin-bottom: 0.2em;
+      transition: box-shadow .17s, transform .16s;
+    }
+    .dapp-card:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+      border-color: #ffd700ee;
+      background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon {
+      font-size: 2.05em; display:block; margin-bottom:0.18em; filter: drop-shadow(0 0 9px #ffd70090);
+    }
+    .launch-button {
+      margin-top: 1.0em; display:inline-block; padding: 0.65em 1.65em;
+      border-radius: 8px; background: #b30000; color: #ffd700;
+      border: 1.7px solid #ffd700ab; font-weight: bold; font-size: 1em;
+      text-decoration: none; transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+      box-shadow: 0 1.5px 8px #ffd70024;
+    }
+    .launch-button:hover, .launch-button:focus { background:#ffd700; color:#b30000; box-shadow:0 0 16px #ffd70088; }
+    @media (max-width: 780px) { .dapp-list { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+    @media (max-width: 530px) { .dapp-list { grid-template-columns: 1fr; } .dapp-card { margin-bottom: 1.4em; } }
+    footer {margin-top:3.1rem; font-size:1.03rem; color:#ffcc70; text-align:center;}
+    .controls-popup-btn { font-size:1.19em; margin: 7px 10px; padding: 14px 35px; border-radius: 14px; border:2px solid #ffd700; background:#181818; color:#ffd700;}
+    .controls-popup-btn:hover { background:#2c1b00;}
+    .controls-modal-bg, #mint-modal-bg, .tuner-modal-bg { position:fixed; top:0;left:0;width:100vw;height:100vh;z-index:1040;background:rgba(0,0,0,0.87);}
+    .controls-modal, #mint-modal, .tuner-modal {
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:#191714; border:2.5px solid #ffd700; border-radius:18px;
+      padding:2.4rem 2rem; z-index:1050; color:#ffd700; min-width:320px;
+      box-shadow:0 8px 48px #000b; max-width:99vw;
+      display: flex; flex-direction:column; align-items:center;
+    }
+    .controls-modal .close-btn { position:absolute; top:14px; right:17px; background:transparent; border:none; color:#ffd70099; font-size:1.5em; cursor:pointer;}
+    .controls-modal h3 { margin-top:0;}
+    #mint-modal input, #mint-modal select { font-size:1.1em; padding:9px 9px; margin:6px 0 13px 0; width:90%; border-radius:7px; border:1.5px solid #ffd70088; background:#181818; color:#ffd700;}
+    #mint-modal .mint-btns { display:flex; gap:18px; margin-top:20px;}
+    #mint-modal .mint-btns button { padding:10px 29px; border-radius:8px; border:2px solid #ffd700; background:#181818; color:#ffd700; font-weight:bold; font-size:1em; cursor:pointer;}
+    #mint-modal .mint-btns button:hover { background:#2c1b00;}
+    #mint-modal h3 { margin-top:0;}
+    .tuner-modal h4 { margin:0 0 14px 0;}
+    .tuner-slider { width:180px; height:44px !important; margin: 0 0 10px 0; accent-color: #ffd700;}
+    .tuner-label { font-size:1.13em; color:#ffd700; font-weight:bold; margin-bottom:5px;}
+    .clip-edit-btn { display:inline-block; border:none; background:#181818; color:#ffd700; font-size:1.3em; cursor:pointer; margin-left:10px; border-radius: 7px; border: 1.5px solid #ffd70044; padding: 3px 15px; transition: background 0.1s;}
+    .clip-edit-btn:hover { background:#2c1b00;}
+    .utility-corner {
+      position: fixed; bottom: 28px; right: 30px; z-index: 1300;
+      background: #b30000; color: #ffd700;
+      padding: 0.88em 1.11em; border-radius: 50%;
+      border: 2.4px solid #ffd700; cursor: pointer;
+      box-shadow: 0 6px 28px #26010133;
+      transition: background 0.2s, box-shadow 0.2s;
+      font-size: 1.28em; display: flex; align-items: center; justify-content: center;
+      animation: utilityBtnIn 0.24s cubic-bezier(.5,1.4,.5,1);
+    }
+    @keyframes utilityBtnIn { from{transform:scale(0.7) translateY(40px);opacity:0;} to{transform:scale(1) translateY(0);opacity:1;} }
+    .utility-corner:hover { background: #ff0000; box-shadow: 0 7px 36px #b3000022; }
+    .utility-menu {
+      position: fixed; bottom: 78px; right: 35px; z-index: 1320;
+      background: #181818; color: #ffd700; border: 2.2px solid #ffd700;
+      border-radius: 14px; padding: 1.21em 1.25em; min-width: 185px;
+      box-shadow: 0 6px 38px #26010177;
+      display: none; flex-direction: column; gap: 0.66em;
+      animation: utilityPopIn 0.21s cubic-bezier(.6,1.4,.4,1);
+    }
+    @keyframes utilityPopIn { from{transform:scale(0.9) translateY(30px);opacity:0;} to{transform:scale(1) translateY(0);opacity:1;} }
+    .utility-menu button {
+      background: #b30000; color: #ffd700;
+      border: 1.3px solid #ffd70099; border-radius: 8px;
+      font-size: 1em; padding: 0.54em 1em; margin-bottom: 0.2em;
+      cursor: pointer; transition: background 0.18s;
+      text-align: left; display: flex; align-items: center; gap: 0.7em;
+    }
+    .utility-menu button:hover { background: #ff0000; color: #fffbe6; }
+    @media (max-width: 700px) {
+      .utility-corner { right: 15px; bottom: 15px; }
+      .utility-menu { right: 12px; min-width: 132px; }
+    }
+    .utility-menu .utility-divider {
+      border-bottom: 1.2px solid #ffd70055;
+      margin: 0.4em 0 0.6em 0;
+    }
+    .mixer-actions-row {
+      width: 100%; display: flex; justify-content: center; margin-bottom: 1.6em;
+      gap: 1.2em;
+    }
+    .mixer-actions-row button {
+      background: #b30000; color: #ffd700; border: 2px solid #ffd700; border-radius: 11px;
+      font-size: 1.14em; font-weight: bold; padding: 0.7em 1.6em; cursor: pointer; transition: background 0.18s;
+      display: flex; align-items: center; gap: 0.7em;
+    }
+    .mixer-actions-row button:hover { background: #ff0000; color: #fffbe6; }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <h1>🧬 Token Mixer Timeline Editor</h1>
+    <div class="wallet-bar-top">
+      <label for="chain-select">Chain:</label>
+      <select id="chain-select">
+        <option value="solana">Solana (Phantom)</option>
+        <option value="ethereum">Ethereum (MetaMask)</option>
+        <option value="bsc">BNB Chain (MetaMask)</option>
+        <option value="cardano">Cardano (Nami/Eternl)</option>
+        <option value="zorg">ZORG</option>
+        <option value="rednode">REDNODE</option>
+      </select>
+      <button id="connect-wallet">🔗 Connect Wallet</button>
+      <button id="import-wallet">🔑 Import Wallet</button>
+      <input id="import-address" type="text" placeholder="Paste address and hit Enter" style="width:170px;display:none;" />
+      <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+    </div>
+  </div>
+  <!-- Rewards Bar -->
+  <div class="rewards-bar-outer">
+    <div class="rewards-bar" id="rewards-bar"></div>
+  </div>
+  <div class="mixer-actions-row">
+    <button onclick="showControlsPopup()"><span>🎛️</span> Mixer Actions</button>
+    <button onclick="previewMix()"><span>▶️</span> Preview Mix</button>
+    <button onclick="exportMp3()"><span>⬇️</span> Export MP3</button>
+    <button onclick="openMintModal()"><span>🪙</span> Mint Audio NFT</button>
+  </div>
+  <p style="text-align:center;">Drag or click to add NFTs/audio to tracks, crop, stretch & drag in time. <b>Each clip costs a reward token!</b></p>
+  <div class="mixer-container" id="mixer-container"></div>
+  <!-- Controls Popup Modal -->
+  <div class="controls-modal-bg" id="controls-modal-bg" style="display:none;">
+    <div class="controls-modal" id="controls-modal">
+      <button class="close-btn" onclick="closeControlsPopup()">✖</button>
+      <h3>🎛️ Mixer Actions</h3>
+      <button style="margin:13px 0;" onclick="previewMix()">▶️ Preview Mix</button>
+      <button style="margin:13px 0;" onclick="exportMp3()">⬇️ Export MP3</button>
+      <button style="margin:13px 0;" onclick="openMintModal()">🪙 Mint Audio NFT</button>
+      <audio id="mix-preview-player" controls style="display:none;margin:18px auto 0 auto;"></audio>
+      <div class="status" id="mix-status"></div>
+    </div>
+  </div>
+  <!-- Mint Modal -->
+  <div id="mint-modal-bg" style="display:none;">
+    <form id="mint-modal" onsubmit="return false;">
+      <h3>🪙 Mint Your Audio NFT</h3>
+      <label for="mintTitle">🎧 NFT Title:</label>
+      <input id="mintTitle" placeholder="e.g. My Audio Mix" required>
+      <label for="mintQty">🔁 Quantity:</label>
+      <input id="mintQty" type="number" min="1" max="25" value="1" required>
+      <label for="mintChain">🌐 Chain:</label>
+      <select id="mintChain" required>
+        <option value="ethereum">Ethereum</option>
+        <option value="solana">Solana</option>
+        <option value="bsc">BNB Chain</option>
+        <option value="cardano">Cardano</option>
+      </select>
+      <label for="mintWallet">📬 Wallet Address:</label>
+      <input id="mintWallet" required>
+      <label for="mintPolicy">📜 Contract / Policy (optional):</label>
+      <input id="mintPolicy">
+      <div class="mint-btns">
+        <button type="submit" id="mintConfirm">Mint</button>
+        <button type="button" onclick="closeMintModal()">Cancel</button>
+      </div>
+      <div id="mint-modal-status" style="margin-top:0.7em;"></div>
+    </form>
+  </div>
+  <!-- Per-Clip Tuner Modal -->
+  <div class="tuner-modal-bg" id="tuner-modal-bg" onclick="closeTunerModal(event)" style="display:none;">
+    <div class="tuner-modal" id="tuner-modal" onclick="event.stopPropagation()">
+      <h4>🎚️ Clip Controls</h4>
+      <div class="tuner-label">🔊 Volume</div>
+      <input id="clip-vol-slider" type="range" min="0" max="2" step="0.01" class="tuner-slider">
+      <div class="tuner-label">⏩ Speed</div>
+      <input id="clip-speed-slider" type="range" min="0.5" max="2.5" step="0.01" class="tuner-slider">
+      <div style="margin-top:20px;">
+        <button onclick="closeTunerModal()" style="padding:7px 27px; border-radius:7px; border:1.8px solid #ffd700; background:#181818; color:#ffd700;">Done</button>
+      </div>
+    </div>
+  </div>
+  <!-- Utility Wrench & Menu -->
+  <div class="utility-corner" id="utility-corner-btn" title="Tools &amp; Options">
+    <span style="font-size:1.45em;">🔧</span>
+  </div>
+  <div class="utility-menu" id="utility-menu">
+    <button onclick="showControlsPopup()"><span>🎛️</span> Mixer Actions</button>
+    <button onclick="previewMix()"><span>▶️</span> Preview Mix</button>
+    <button onclick="exportMp3()"><span>⬇️</span> Export MP3</button>
+    <button onclick="openMintModal()"><span>🪙</span> Mint Audio NFT</button>
+    <div class="utility-divider"></div>
+    <button onclick="resetMixer()"><span>🔄</span> Reset Mixer</button>
+    <button onclick="downloadSession()"><span>⬇️</span> Download Session</button>
+    <button onclick="window.open('https://docs.omconsole.com','_blank')"><span>📄</span> Open Docs</button>
+    <button onclick="window.open('mailto:support@chaines.io','_blank')"><span>💬</span> Contact Support</button>
+    <button onclick="toggleDarkLight()"><span>🌗</span> Toggle Theme</button>
+    <button onclick="closeUtilityMenu()" style="background:#b30000;margin-top:7px;"><b>Close</b></button>
+  </div>
+  <!-- Dapps Footer -->
+  <section class="dapp-list" id="dapps">
+    <article class="dapp-card">
+      <span class="dapp-icon">🎤</span>
+      <h2>Voice Changer</h2>
+      <p>Real-time audio manipulation</p>
+      <a class="launch-button" href="/voice-changer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">📋</span>
+      <h2>Quest Board</h2>
+      <p>Complete tasks, earn tokens</p>
+      <a class="launch-button" href="/quest-board">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🎹</span>
+      <h2>NFT Mixer</h2>
+      <p>Blend tokens and NFTs into new forms</p>
+      <a class="launch-button" href="/token-mixer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🖼️</span>
+      <h2>NFT Viewer</h2>
+      <p>Display owned NFTs</p>
+      <a class="launch-button" href="/nft-viewer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🎮</span>
+      <h2>Game Portal</h2>
+      <p>Play blockchain mini-games</p>
+      <a class="launch-button" href="/game">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🛒</span>
+      <h2>Marketplace</h2>
+      <p>Buy/sell items with tokens</p>
+      <a class="launch-button" href="/marketplace">Launch</a>
+    </article>
+  </section>
+  <footer>
+    <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+  </footer>
+  <script>
+    // --- Rewards State (Synced) ---
+    const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+    const REWARDS = [
+      {id:'voice',  emoji:'🎤', label:'Voice'},
+      {id:'beat',   emoji:'🥁', label:'Beat'},
+      {id:'fx',     emoji:'✨', label:'FX'},
+      {id:'melody', emoji:'🎶', label:'Melody'},
+      {id:'bass',   emoji:'🎸', label:'Bass'},
+      {id:'custom', emoji:'🧩', label:'Custom'}
+    ];
+    let TRACKS = REWARDS.filter(r=>TRACK_IDS.includes(r.id)).map(t=>({...t,supply:0}));
+
+    const CHAIN_KEY  = 'mixer_current_chain';
+    const WALLET_KEY = 'mixer_current_wallet';
+
+    const rewardsKey = (chain,addr) => `mixer_tokens_${chain}_${addr}`;
+    function getWalletRewards(chain, addr){
+      if(!addr) return {};
+      const raw = localStorage.getItem(rewardsKey(chain,addr));
+      const base = Object.fromEntries(TRACK_IDS.map(id=>[id,25]));
+      if(!raw){ saveWalletRewards(chain,addr,base); return base; }
+      try{ return {...base, ...JSON.parse(raw)}; }catch{ return base; }
+    }
+    const saveWalletRewards = (chain,addr,obj)=>
+      addr && localStorage.setItem(rewardsKey(chain,addr),JSON.stringify(obj));
+
+    function persistSession(){
+      localStorage.setItem(CHAIN_KEY , currentChain );
+      localStorage.setItem(WALLET_KEY, wallet||'');
+    }
+    function restoreSession(){
+      const savedChain  = localStorage.getItem(CHAIN_KEY );
+      const savedWallet = localStorage.getItem(WALLET_KEY);
+      if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+        currentChain = savedChain;
+        chainSelect.value = savedChain;
+      }
+      if(savedWallet){
+        wallet = savedWallet;
+        walletMini.textContent = `${currentChain.toUpperCase()}: ${wallet.length>13?wallet.slice(0,6)+'...'+wallet.slice(-6):wallet}`;
+        document.getElementById("mintWallet").value = wallet;
+      }
+    }
+
+    function loadRewards(){
+      if(!wallet){ TRACKS.forEach(t=>t.supply=0); return; }
+      const r = getWalletRewards(currentChain, wallet);
+      TRACKS.forEach(t=>{ t.supply = r[t.id]||0; });
+    }
+
+    function renderRewardsBar() {
+      loadRewards();
+      const bar = document.getElementById('rewards-bar');
+      const rewards = getWalletRewards(currentChain,wallet);
+      bar.innerHTML = REWARDS.map(r=>{
+        const val = rewards[r.id] || 0;
+        return `
+          <div class="reward-chip" tabindex="0">
+            <span class="emoji">${r.emoji}</span>
+            <span class="label">${r.label}</span>
+            <span class="supply-box">${val}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // --- WALLET LOGIC ---
+    const chainSelect = document.getElementById("chain-select");
+    const connectBtn = document.getElementById("connect-wallet");
+    const importBtn = document.getElementById("import-wallet");
+    const importAddressInput = document.getElementById("import-address");
+    const walletMini = document.getElementById("wallet-addr-mini");
+    let currentChain = chainSelect.value;
+    let wallet = "";
+    chainSelect.addEventListener("change", e => {
+      currentChain = e.target.value; wallet = ""; walletMini.textContent = "";
+      persistSession();
+      renderRewardsBar(); renderMixer();
+    });
+    connectBtn.addEventListener("click", async () => {
+      if (currentChain === "solana") await connectPhantom();
+      else if (["ethereum", "bsc"].includes(currentChain)) await connectMetamask(currentChain);
+      else if (currentChain === "cardano") await connectCardano();
+      else await connectCustom();
+      if(wallet) loadRewards();
+      persistSession();
+      renderRewardsBar(); renderMixer();
+    });
+    importBtn.addEventListener("click", ()=>{
+      importAddressInput.style.display = "inline-block"; importAddressInput.value = ""; importAddressInput.focus();
+    });
+    importAddressInput.addEventListener("keydown", e=>{
+      if(e.key==="Enter" && importAddressInput.value.trim()) {
+        wallet = importAddressInput.value.trim();
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` + (wallet.length>13 ? wallet.slice(0,6)+"..."+wallet.slice(-6) : wallet);
+        document.getElementById("mintWallet").value = wallet;
+        importAddressInput.style.display = "none";
+        if(wallet) loadRewards();
+        persistSession();
+        renderRewardsBar(); renderMixer();
+      }
+    });
+    async function connectPhantom() {
+      if (window.solana?.isPhantom) {
+        const resp = await window.solana.connect();
+        wallet = resp.publicKey.toString();
+        walletMini.textContent = `SOL: ${wallet.slice(0,6)}...${wallet.slice(-6)}`;
+        document.getElementById("mintWallet").value = wallet;
+        loadRewards(); persistSession();
+      } else { alert("Phantom not found."); }
+    }
+    async function connectMetamask(chain) {
+      if (!window.ethereum) return alert("Metamask not found.");
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      wallet = await signer.getAddress();
+      walletMini.textContent = `${chain.toUpperCase()}: ${wallet.slice(0,6)}...${wallet.slice(-6)}`;
+      document.getElementById("mintWallet").value = wallet;
+      loadRewards(); persistSession();
+    }
+    async function connectCardano() {
+      const api = window.cardano?.nami || window.cardano?.eternl;
+      if (!api) return alert("Install Nami or Eternl.");
+      const walletApi = await api.enable();
+      wallet = toBech32("addr", await walletApi.getChangeAddress());
+      walletMini.textContent = `ADA: ${wallet.slice(0,12)}...${wallet.slice(-7)}`;
+      document.getElementById("mintWallet").value = wallet;
+      loadRewards(); persistSession();
+    }
+    async function connectCustom() {
+      wallet = prompt(`Enter your ${currentChain.toUpperCase()} wallet address:`);
+      if(wallet) {
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` + (wallet.length>13 ? wallet.slice(0,6)+"..."+wallet.slice(-6) : wallet);
+        document.getElementById("mintWallet").value = wallet;
+        loadRewards(); persistSession();
+      }
+    }
+    // --- MIXER/DAW Logic ---
+    const TIMELINE_LEN = 20;
+    const PIXELS_PER_SEC = Math.max(60, window.innerWidth/21);
+    const mixerContainer = document.getElementById('mixer-container');
+    const state = {};
+    TRACKS.forEach(tr=>state[tr.id]=[]);
+    state.activeClip = null;
+    function getSupply(trackId) { return (TRACKS.find(t=>t.id===trackId)||{}).supply||0; }
+    function spendToken(trackId) {
+      let t = TRACKS.find(t=>t.id===trackId);
+      if(t && t.supply>0){
+        t.supply--;
+        if(wallet){
+          const r = getWalletRewards(currentChain, wallet);
+          r[trackId] = Math.max(0,(r[trackId]||0)-1);
+          saveWalletRewards(currentChain, wallet, r);
+        }
+        renderRewardsBar();
+        return true;
+      }
+      return false;
+    }
+    function refundToken(trackId) {
+      let t = TRACKS.find(t=>t.id===trackId);
+      if(t){
+        t.supply++;
+        if(wallet){
+          const r = getWalletRewards(currentChain, wallet);
+          r[trackId] = (r[trackId]||0)+1;
+          saveWalletRewards(currentChain, wallet, r);
+        }
+      }
+      renderRewardsBar();
+    }
+    function renderMixer() {
+      mixerContainer.innerHTML = "";
+      TRACKS.forEach(tr=>{
+        let disabled = getSupply(tr.id)<=0;
+        mixerContainer.insertAdjacentHTML('beforeend', `
+          <div class="track" id="track-${tr.id}">
+            <label>${tr.label}</label>
+            <canvas class="timeline-canvas" id="timeline-${tr.id}" width="${PIXELS_PER_SEC*TIMELINE_LEN}" height="72" style="${disabled?'opacity:0.5;filter:grayscale(0.8)':''}"></canvas>
+            <div class="drag-drop" id="drag-drop-${tr.id}" style="${disabled?'pointer-events:none;opacity:0.4;':''}">
+              <span>${disabled ? 'No tokens left.' : 'Drop audio/NFT here or click to add'}</span>
+              <input type="file" id="${tr.id}-file" accept="audio/*" style="display:none" multiple ${disabled?'disabled':''}>
+            </div>
+          </div>
+        `);
+        setupTrack(tr, disabled);
+        renderTimeline(tr);
+      });
+    }
+    function setupTrack(tr, disabled) {
+      const dropDiv = document.getElementById(`drag-drop-${tr.id}`);
+      const fileInput = document.getElementById(`${tr.id}-file`);
+      if(disabled) return;
+      dropDiv.onclick = ()=>fileInput.click();
+      document.getElementById(`timeline-${tr.id}`).onclick = ()=>fileInput.click();
+      [dropDiv, document.getElementById(`timeline-${tr.id}`)].forEach(el=>{
+        el.ondragover = e => { e.preventDefault(); dropDiv.classList.add("dragover"); };
+        el.ondragleave = e => { dropDiv.classList.remove("dragover"); };
+        el.ondrop = async e => {
+          e.preventDefault(); dropDiv.classList.remove("dragover");
+          for (let file of e.dataTransfer.files) await addClipToTrack(tr.id, {file:file});
+        };
+      });
+      fileInput.onchange = async ()=>{
+        for (let file of fileInput.files) await addClipToTrack(tr.id, {file:file});
+        fileInput.value = null;
+      };
+    }
+    async function addClipToTrack(trackId, {file, title, art, audio}) {
+      if(!spendToken(trackId)) {
+        alert('No reward tokens left for this track!');
+        return;
+      }
+      let buf, meta = {title, art};
+      if(file){
+        let audioUrl = URL.createObjectURL(file);
+        buf = await decodeAudio(audioUrl);
+        meta.title = file.name.replace(/\.\w+$/, '');
+      } else if(audio){
+        buf = await decodeAudio(audio);
+      }
+      if (!buf) { refundToken(trackId); return; }
+      let cropStart=0, cropEnd=buf.duration, vol=1.0, stretch=1.0, startTime=0;
+      state[trackId].push({file, buf, ...meta, cropStart, cropEnd, vol, stretch, startTime, duration:cropEnd-cropStart});
+      state.activeClip = {trackId, idx: state[trackId].length-1};
+      renderTimeline({id:trackId});
+      showTunerModal(trackId, state[trackId].length-1);
+    }
+    function renderTimeline(tr) {
+      let timeline = document.getElementById(`timeline-${tr.id}`);
+      if(!timeline) return;
+      let ctx = timeline.getContext('2d');
+      ctx.clearRect(0,0,timeline.width,timeline.height);
+      ctx.strokeStyle="#ffd70033"; ctx.lineWidth=1;
+      for(let t=0;t<=TIMELINE_LEN;t++){
+        let x = t*PIXELS_PER_SEC;
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,timeline.height); ctx.stroke();
+        if(t%2===0) { ctx.fillStyle="#ffd70077"; ctx.font="11px Segoe UI"; ctx.fillText(t+"s", x+2, 11);}
+      }
+      state[tr.id].forEach((clip,idx)=>{
+        let width = ((clip.cropEnd-clip.cropStart)*clip.stretch)*PIXELS_PER_SEC;
+        let x = clip.startTime*PIXELS_PER_SEC;
+        ctx.save();
+        ctx.fillStyle = "#ffd70030"; ctx.fillRect(x,16,width,40);
+        ctx.strokeStyle = "#ffd700"; ctx.lineWidth=2.2; ctx.strokeRect(x,16,width,40);
+        ctx.fillStyle="#ffd700"; ctx.font="bold 14px Segoe UI";
+        ctx.fillText(clip.title || "Audio", x+8, 35);
+        drawHandle(ctx, x, 16, 40);
+        drawHandle(ctx, x+width, 16, 40);
+        drawStretchHandle(ctx, x+width, 56, 12);
+        ctx.restore();
+      });
+      timeline.onmousedown = function(e){
+        let rect = timeline.getBoundingClientRect();
+        let x = e.clientX-rect.left, y = e.clientY-rect.top;
+        let hit = null, dragType=null, dragIdx=null;
+        state[tr.id].forEach((clip,idx)=>{
+          let cx = clip.startTime*PIXELS_PER_SEC;
+          let cwidth = ((clip.cropEnd-clip.cropStart)*clip.stretch)*PIXELS_PER_SEC;
+          if(x>=cx&&x<=cx+cwidth&&y>=16&&y<=56){
+            hit=clip; dragIdx=idx;
+            if(Math.abs(x-cx)<8) dragType="cropStart";
+            else if(Math.abs(x-(cx+cwidth))<8 && y<53) dragType="cropEnd";
+            else if(Math.abs(x-(cx+cwidth))<10 && y>53) dragType="stretch";
+            else dragType="move";
+          }
+        });
+        if(!hit) return;
+        state.activeClip = {trackId: tr.id, idx: dragIdx};
+        renderTimeline(tr);
+        let startX = x, origStart=hit.startTime, origCropStart=hit.cropStart, origCropEnd=hit.cropEnd, origStretch=hit.stretch;
+        timeline.onmousemove = function(e2){
+          let x2 = e2.clientX-rect.left;
+          let dx = (x2-startX)/PIXELS_PER_SEC;
+          if(dragType==="move"){
+            hit.startTime = Math.max(0, Math.min(TIMELINE_LEN-((hit.cropEnd-hit.cropStart)*hit.stretch), origStart+dx));
+          }
+          else if(dragType==="cropStart"){
+            let dt = dx/hit.stretch;
+            hit.cropStart = Math.max(0, Math.min(hit.cropEnd-0.05, origCropStart+dt));
+          }
+          else if(dragType==="cropEnd"){
+            let dt = dx/hit.stretch;
+            hit.cropEnd = Math.max(hit.cropStart+0.05, Math.min(hit.buf.duration, origCropEnd+dt));
+          }
+          else if(dragType==="stretch"){
+            let dt = dx/(hit.cropEnd-hit.cropStart);
+            hit.stretch = Math.max(0.5, Math.min(2.5, origStretch+dt));
+          }
+          hit.duration = (hit.cropEnd-hit.cropStart)*hit.stretch;
+          renderTimeline(tr);
+        };
+        document.onmouseup = function(){
+          timeline.onmousemove = null;
+          document.onmouseup = null;
+        };
+      };
+    }
+    function drawHandle(ctx, x, y, h){
+      ctx.save();
+      ctx.strokeStyle="#b30000"; ctx.lineWidth=2.7;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+h); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y+h/2, 6.5, 0, 2*Math.PI);
+      ctx.fillStyle = "#ffd700"; ctx.globalAlpha = 0.95; ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = "#b30000"; ctx.stroke();
+      ctx.restore();
+    }
+    function drawStretchHandle(ctx, x, y, size){
+      ctx.save(); ctx.strokeStyle="#00b3b3"; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(x, y, size, 0, 2*Math.PI); ctx.stroke();
+      ctx.fillStyle="#ffd700"; ctx.globalAlpha=0.85; ctx.beginPath();
+      ctx.arc(x, y, size-2, 0, 2*Math.PI); ctx.fill();
+      ctx.globalAlpha=1; ctx.restore();
+    }
+    async function decodeAudio(url){
+      let ctx = new (window.AudioContext||window.webkitAudioContext)();
+      let res = await fetch(url); let arr = await res.arrayBuffer();
+      return await ctx.decodeAudioData(arr);
+    }
+    function showTunerModal(trackId, idx) {
+      let modalBg = document.getElementById("tuner-modal-bg");
+      let volSlider = document.getElementById("clip-vol-slider");
+      let speedSlider = document.getElementById("clip-speed-slider");
+      if (!state[trackId][idx]) return;
+      modalBg.style.display = "block";
+      volSlider.value = state[trackId][idx].vol;
+      speedSlider.value = state[trackId][idx].stretch;
+      volSlider.oninput = e => { state[trackId][idx].vol = parseFloat(e.target.value); renderTimeline({id: trackId}); };
+      speedSlider.oninput = e => { state[trackId][idx].stretch = parseFloat(e.target.value); renderTimeline({id: trackId}); };
+      modalBg.dataset.trackId = trackId; modalBg.dataset.idx = idx;
+    }
+    function closeTunerModal(event) { if (event && event.target && event.target.id !== "tuner-modal-bg") return; document.getElementById("tuner-modal-bg").style.display = "none"; }
+    // --- Controls popup / mint logic / export unchanged (see previous block)
+    function showControlsPopup() {
+      document.getElementById("controls-modal-bg").style.display = "block";
+      document.getElementById("mix-status").textContent = "";
+      document.getElementById("mix-preview-player").style.display = "none";
+    }
+    function closeControlsPopup() {
+      document.getElementById("controls-modal-bg").style.display = "none";
+      document.getElementById("mix-status").textContent = "";
+      document.getElementById("mix-preview-player").style.display = "none";
+    }
+    async function previewMix() {
+      let wavBlob = await renderAndExportMix();
+      let url = URL.createObjectURL(wavBlob);
+      let audio = document.getElementById("mix-preview-player");
+      audio.src = url;
+      audio.style.display = "block";
+      audio.play();
+      document.getElementById("mix-status").textContent = "Previewing mix (WAV)";
+    }
+    async function exportMp3() { alert("MP3 export coming soon! (WAV works now.)"); document.getElementById("mix-status").textContent = "MP3 export not yet implemented."; }
+    function openMintModal(){
+      document.getElementById("mint-modal-bg").style.display="block";
+      document.getElementById("mintTitle").focus();
+      document.getElementById("mintWallet").value = wallet || "";
+    }
+    function closeMintModal(){
+      document.getElementById("mint-modal-bg").style.display="none";
+      document.getElementById("mint-modal-status").textContent="";
+    }
+    async function renderAndExportMix() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const maxLen = TIMELINE_LEN * 44100;
+      let mix = ctx.createBuffer(1, maxLen, 44100);
+      TRACKS.forEach(tr => {
+        state[tr.id].forEach(clip => {
+          let clipSamples = Math.floor((clip.cropEnd - clip.cropStart) * clip.buf.sampleRate * clip.stretch);
+          let startSample = Math.floor(clip.startTime * 44100);
+          let data = clip.buf.getChannelData(0).slice(
+            Math.floor(clip.cropStart * clip.buf.sampleRate),
+            Math.floor(clip.cropEnd * clip.buf.sampleRate)
+          );
+          let stretched = new Float32Array(clipSamples);
+          for (let i = 0; i < clipSamples; i++) {
+            let pos = i / clip.stretch;
+            let idx = Math.floor(pos);
+            let frac = pos - idx;
+            let val = (data[idx] || 0) * (1 - frac) + (data[idx + 1] || 0) * frac;
+            stretched[i] = (val || 0) * (clip.vol || 1.0);
+          }
+          let out = mix.getChannelData(0);
+          for (let i = 0; i < stretched.length; i++) {
+            let idx = startSample + i;
+            if (idx < out.length) out[idx] += stretched[i];
+          }
+        });
+      });
+      let out = mix.getChannelData(0);
+      let max = 0;
+      for (let i = 0; i < out.length; i++) { if (Math.abs(out[i]) > max) max = Math.abs(out[i]); }
+      if (max > 1) for (let i = 0; i < out.length; i++) out[i] /= max;
+      return bufferToWavBlob(mix);
+    }
+    function bufferToWavBlob(buffer) {
+      let numChannels = buffer.numberOfChannels, sampleRate = buffer.sampleRate, bitDepth=16;
+      let length = buffer.length * numChannels * 2 + 44;
+      let view = new DataView(new ArrayBuffer(length));
+      function writeStr(v, off, s) { for(let i=0;i<s.length;i++)v.setUint8(off+i,s.charCodeAt(i)); }
+      let o=0; writeStr(view,o,'RIFF'); o+=4;
+      view.setUint32(o, length-8, true); o+=4;
+      writeStr(view,o,'WAVE'); o+=4; writeStr(view,o,'fmt '); o+=4;
+      view.setUint32(o, 16, true); o+=4;
+      view.setUint16(o, 1, true); o+=2;
+      view.setUint16(o, numChannels, true); o+=2;
+      view.setUint32(o, sampleRate, true); o+=4;
+      view.setUint32(o, sampleRate*numChannels*2, true); o+=4;
+      view.setUint16(o, numChannels*2, true); o+=2;
+      view.setUint16(o, bitDepth, true); o+=2;
+      writeStr(view,o,'data'); o+=4;
+      view.setUint32(o, length-o-4, true); o+=4;
+      for(let i=0;i<buffer.length;i++)
+        for(let ch=0;ch<numChannels;ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1,Math.min(1,sample));
+          sample = sample<0?sample*32768:sample*32767;
+          view.setInt16(o, sample, true); o+=2;
+        }
+      return new Blob([view], {type:'audio/wav'});
+    }
+    document.getElementById("mint-modal").onsubmit = async function(){
+      let title = document.getElementById("mintTitle").value;
+      let qty = parseInt(document.getElementById("mintQty").value);
+      let chain = document.getElementById("mintChain").value;
+      let wallet = document.getElementById("mintWallet").value;
+      let policy = document.getElementById("mintPolicy").value;
+      if(!title||!qty||!chain||!wallet) return alert("Fill all fields.");
+      document.getElementById("mint-modal-status").textContent="Uploading and minting NFT...";
+      let wavBlob = await renderAndExportMix();
+      let formData = new FormData();
+      formData.append("title", title); formData.append("qty", qty); formData.append("chain", chain);
+      formData.append("wallet", wallet); formData.append("policy", policy);
+      formData.append("mix", wavBlob, title.replace(/[^a-z0-9]/gi,'_')+".wav");
+      let resp = await fetch("/api/mint-nft", {method:"POST",body:formData});
+      let result = await resp.json();
+      document.getElementById("mint-modal-status").textContent = result.message||"Minted!";
+      if(result.success) setTimeout(closeMintModal, 2000);
+    };
+
+    // --- Utility Corner Logic ---
+    const utilBtn = document.getElementById("utility-corner-btn");
+    const utilMenu = document.getElementById("utility-menu");
+    utilBtn.onclick = () => {
+      utilMenu.style.display = utilMenu.style.display === "flex" ? "none" : "flex";
+    };
+    function closeUtilityMenu() { utilMenu.style.display = "none"; }
+    document.body.addEventListener('click', function(e) {
+      if(!utilBtn.contains(e.target) && !utilMenu.contains(e.target)) utilMenu.style.display = "none";
+    }, true);
+    function resetMixer() {
+      if(confirm("Reset all tracks and clips? This cannot be undone!")) {
+        TRACKS.forEach(t=>state[t.id]=[]);
+        renderMixer();
+        closeUtilityMenu();
+      }
+    }
+    function downloadSession() {
+      const session = JSON.stringify(state, null, 2);
+      const blob = new Blob([session], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = "token_mixer_session.json";
+      a.click();
+      closeUtilityMenu();
+    }
+    function toggleDarkLight() {
+      if(document.body.style.background.startsWith("linear-gradient")) {
+        document.body.style.background = "#f8f8f8";
+        document.body.style.color = "#880000";
+        document.querySelectorAll('.mixer-container, .track, .controls-modal, #mint-modal, .tuner-modal, .rewards-bar').forEach(
+          el=>el && (el.style.background="#fffbe6")
+        );
+      } else {
+        document.body.style.background = "linear-gradient(to right,#7c0a02,#260101)";
+        document.body.style.color = "#ffd700";
+        document.querySelectorAll('.mixer-container, .track, .controls-modal, #mint-modal, .tuner-modal, .rewards-bar').forEach(
+          el=>el && (el.style.background="")
+        );
+      }
+      closeUtilityMenu();
+    }
+    // --- Init
+    restoreSession();
+    renderRewardsBar();
+    renderMixer();
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎵 Music NFT Marketplace</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Model Viewer for AR & 3D models -->
+  <script type="module" src="{{ url_for('static', filename='libs/model-viewer.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+  <style>
+    :root {
+      --gold: #ffd700;
+      --red: #b30000;
+      --dark: #181818;
+      --deep-gold: #ffef99;
+      --border-radius: 22px;
+    }
+    body {
+      background: linear-gradient(120deg, #181818 80%, #b30000 100%);
+      color: var(--gold);
+      font-family: 'Segoe UI', SegoeUI, Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 38px 8px 38px;
+      background: linear-gradient(90deg, #7c0a02 0%, #ffd70025 100%);
+      border-bottom: 2px solid var(--gold);
+      border-radius: 0 0 32px 32px;
+      box-shadow: 0 7px 44px #b3000045;
+    }
+    .header-row h1 {
+      color: var(--gold);
+      font-size: 2.2em;
+      font-weight: 900;
+      text-shadow: 0 2px 18px #b3000050, 0 0 32px #ffd70045;
+      letter-spacing: 0.01em;
+      margin: 0;
+    }
+    .wallet-btn {
+      background: var(--red); color: var(--gold);
+      border: 2px solid #ffd700a8;
+      border-radius: 9px;
+      font-size: 1.13em; font-weight: bold; padding: 7px 20px; cursor: pointer;
+      margin-left: 15px; transition: background 0.13s, color 0.13s, box-shadow .17s;
+      box-shadow: 0 1px 13px #ffd7003b;
+    }
+    .wallet-btn:hover, .wallet-btn:focus {
+
+    .wallet-bar-top{display:flex;align-items:center;justify-content:flex-end;background:rgba(30,30,30,0.92);border-bottom:2.5px solid #ffd700;padding:.73rem 2.1rem .73rem 1.4rem;border-radius:0 0 17px 17px;font-size:1.11em;min-height:48px;position:sticky;top:0;z-index:99;box-shadow:0 5px 28px #ffd70016;flex-wrap:wrap;gap:1em;}
+    .wallet-bar-top>*{margin-left:1.4em;}
+    .wallet-bar-top select,.wallet-bar-top button,.wallet-bar-top input[type="text"]{padding:7px 13px;font-size:1rem;border-radius:7px;border:1px solid #ffd70060;background:#181818;color:#ffd700;outline:none;box-shadow:none;transition:border .2s;}
+    .wallet-bar-top button{background:#b30000;color:#ffd700;border:1.5px solid #ffd700;cursor:pointer;font-weight:600;transition:background .18s;}
+    .wallet-bar-top button:hover,.wallet-bar-top select:focus{background:#ff0000;border:1.5px solid #ffd700;}
+    .wallet-addr-mini{font-weight:600;background:#260101;border-radius:6px;border:1.1px solid #ffd700;padding:4px 13px;font-size:1.04em;margin-left:1.2em;}
+      background: var(--gold); color: var(--red);
+      box-shadow: 0 0 30px #ffd700c1;
+    }
+    .rewards-bar {
+      margin: 0 auto 1.8em auto;
+      display: flex; flex-wrap: nowrap;
+      overflow-x: auto; gap: 0.85em;
+      justify-content: center; align-items: flex-end;
+      max-width: 100vw;
+      background: linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);
+      border-radius: 18px;
+      box-shadow: 0 2px 22px #ffd70021, 0 0 40px #b3000011;
+      border: 2.1px solid #ffd700cc;
+      padding: 0.62em 0.8em 0.38em 0.8em;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .rewards-bar::-webkit-scrollbar {display: none;}
+    .reward-chip {
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      min-width: 54px; max-width: 90px; margin: 0 0.04em;
+      padding: 0.13em 0.12em 0.26em 0.13em;
+      background: none; border: none;
+      font-size: 1em; cursor:pointer;
+      position:relative; border-radius: 13px;
+      box-shadow:0 2px 14px #ffd70017;
+      transition: transform .14s, box-shadow .14s;
+      border: 1.5px solid transparent;
+    }
+    .reward-chip:hover, .reward-chip:focus {
+      transform: scale(1.10);
+      box-shadow: 0 4px 36px #ffd700e0, 0 2px 12px #b3000050;
+      z-index:2;
+      border-color: var(--gold);
+    }
+    .reward-chip.rare .emoji { color:#e61cb2; }
+    .reward-chip.unique .emoji { color:#1bb8e7; }
+    .reward-chip.bundle .emoji { color:#ff7800;}
+    .reward-chip.sampler .emoji { color:#f5d300;}
+    .reward-chip .emoji {
+      font-size: 1.6em; margin-bottom: 0.02em;
+      filter: drop-shadow(0 0 8px #ffd70063);
+      animation: pulseGlow 1.5s infinite alternate;
+      text-shadow: 0 0 12px #ffd700a8;
+    }
+    .reward-chip .label {
+      font-size: 1em; font-weight: 700; color: #ffd700;
+      margin: 0.09em 0 0.11em 0; white-space: nowrap; text-align:center;
+      text-shadow: 0 1px 7px #b3000032;
+    }
+    .reward-chip .supply-box {
+      background: linear-gradient(90deg, #fffbe6 60%, #ffd700 100%);
+      color: #b30000; border-radius: 9px;
+      box-shadow: 0 2px 12px #ffd70060, 0 0 8px #b3000023;
+      font-weight: bold; padding: 0.21em 0.92em 0.17em 0.92em;
+      font-size: 1.05em; margin-top: 0.05em; min-width: 34px; text-align: center;
+      border:2px solid #ffd70099; animation: supplyGlow 2.2s infinite alternate;
+    }
+    @keyframes pulseGlow {from { filter: drop-shadow(0 0 8px #ffd70090);}to { filter: drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow {from { box-shadow: 0 2px 12px #ffd70041;}to { box-shadow: 0 0 20px #ffd700ee, 0 2px 12px #ffd70030;}}
+    .gallery-list {
+      display: flex; flex-wrap: wrap; gap: 34px; margin: 24px 38px 10px 38px;
+      justify-content: flex-start;
+    }
+    .nft-card {
+      background: linear-gradient(120deg, #231318 84%, #ffd70013 100%);
+      border-radius: 18px;
+      box-shadow: 0 4px 28px #b3000025, 0 6px 34px #ffd70020;
+      padding: 15px 15px 14px 15px;
+      width: 258px;
+      cursor: pointer;
+      transition: transform 0.14s, box-shadow 0.13s;
+      display: flex; flex-direction: column; align-items: center;
+      border: 2.3px solid #ffd700ea; position:relative; overflow:hidden;
+    }
+    .nft-card:hover { transform: scale(1.055); box-shadow: 0 8px 36px #ffd700f0, 0 2px 26px #b3000077; z-index:2;}
+    .nft-thumb {width: 224px; height: 126px; object-fit: cover; border-radius: 13px; background: #320000; margin-bottom: 10px;}
+    .nft-title { font-size: 18px; font-weight: bold; color: #ffd700; margin-bottom:1px; letter-spacing:0.01em;}
+    .nft-desc { font-size: 13px; color: #eec; margin-top: 3px; margin-bottom: 8px; }
+    .nft-meta-row {display:flex;gap:7px;justify-content:center;align-items:center;margin-bottom:2px;}
+    .nft-reward-badge {
+      display:flex;align-items:center;gap:3px;
+      padding:2px 10px 2px 7px;border-radius:11px;
+      background:#ffd70026;color:#b30000;font-size:1em;font-weight:700;margin-right:5px;
+      border:1.6px solid #ffd700b6; box-shadow:0 0 6px #ffd7002b;
+    }
+    .nft-supply { font-size:13px; color:#ffd700;font-weight:700;}
+    .nft-price { font-size:14px; color:#ffad49;font-weight:700; margin-left:7px;}
+    .nft-action-btns {
+      display: flex;
+      gap: 0.7em;
+      margin-top: 0.7em;
+    }
+    .ar-view-btn, .mint-btn {
+      padding: 7px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 1px 7px #ffd70035;
+      transition: background 0.12s, color 0.12s;
+      background: var(--gold);
+      color: #b30000;
+    }
+    .ar-view-btn:hover, .mint-btn:hover { background: #b30000; color: #ffd700; }
+    .mint-btn { background: #b30000; color: #ffd700; border: 1.5px solid #ffd700; }
+    .mint-btn:hover { background: #ffd700; color: #b30000; }
+    .mint-section {
+      background: linear-gradient(120deg,#181818 85%, #ffd70013 100%);
+      border-radius: var(--border-radius); border: 2.4px solid #ffd700e7;
+      box-shadow: 0 6px 44px #ffd70022, 0 2px 14px #b300001a;
+      max-width: 670px; margin: 38px auto 38px auto;
+      padding: 34px 38px 28px 38px;
+    }
+    .mint-section h2 { margin-top: 0; color: var(--gold); text-shadow: 0 1px 14px #ffd70095;}
+    .mint-form-row { margin-bottom: 18px; }
+    .mint-form-row label { display: block; margin-bottom: 5px; font-size: 16px;}
+    .mint-form-row input, .mint-form-row select {
+      width: 100%; font-size: 16px; border-radius: 7px; border: 1.3px solid #ffd700a0;
+      padding: 8px 12px;background: #18192d; color: #ffd700; margin-bottom: 3px;
+      box-shadow: 0 1px 8px #ffd7001a;
+    }
+    #mintLivePreview {width: 100%; height: 340px; margin: 0 auto 22px auto;
+      border-radius: 13px; overflow: hidden; box-shadow: 0 2px 18px #ffd7003b;background: #18192d;}
+    #mint-confirm-btn {margin-top: 10px; padding: 10px 30px; font-size: 17px; font-weight: bold;border-radius: 10px; background: #b30000; color: #ffd700; border: 2px solid #ffd700a9; cursor: pointer; box-shadow: 0 1px 11px #ffd70016;}
+    #mint-confirm-btn[disabled] { background: #383; color: #ffd70070; cursor: not-allowed; border-color:#ffd70060;}
+    .mint-status { margin: 1em 0 0 0; color: #ffd700; min-height: 1.6em; }
+    /* -------- MODAL --------- */
+    #modalBG { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(40,10,10,0.92); z-index: 100; display: none; }
+    #nftModal {position: fixed; left: 50%; top: 54%; transform: translate(-50%,-50%);width: 520px; background: #181818; border-radius: 22px; padding: 30px 28px 20px 28px;z-index: 101; display: none; box-shadow: 0 8px 52px #ffd70091;}
+    .modal-close { position: absolute; right: 20px; top: 13px; color: #ffd700; font-size: 32px; cursor: pointer; z-index: 2; }
+    .nft-modal-title { font-size: 23px; font-weight: bold; color: #ffd700; margin-bottom: 4px;}
+    .nft-modal-desc { color: #ffd700b6; font-size: 15px; margin-bottom: 8px;}
+    #model-viewer-wrap { width: 100%; height: 320px; margin: 0 auto 10px auto; border-radius: 13px; overflow: hidden; }
+    .glb-moveable {
+      position: absolute; top: 70px; left: 160px; width: 180px; height: 180px;
+      z-index: 2; background: transparent; cursor: grab; border-radius: 10px;
+      transition: box-shadow 0.15s;
+    }
+    .glb-moveable:active { cursor: grabbing; box-shadow: 0 0 8px #4ad; }
+    .modal-action-row {display:flex;gap:1.2em;justify-content:center;margin-top:15px;}
+    .modal-ar-btn, .modal-mint-btn {
+      padding: 10px 30px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.13s, color 0.13s;
+      box-shadow: 0 1px 8px #ffd70016;
+      border: 2px solid #ffd700a9;
+    }
+    .modal-ar-btn { background: #ffd700; color: #b30000;}
+    .modal-ar-btn:hover { background: #b30000; color: #ffd700;}
+    .modal-mint-btn { background: #b30000; color: #ffd700;}
+    .modal-mint-btn:hover { background: #ffd700; color: #b30000;}
+    @media (max-width: 750px) {
+      .gallery-list {margin-left: 6px;}
+      .mint-section, #nftModal, #model-viewer-wrap { width: 97vw !important; }
+      #model-viewer-wrap, #mintLivePreview { height: 220px !important; }
+      .dapp-list {padding:1em;}
+    }
+    @media (max-width: 490px) {
+      .reward-chip { min-width:34px; max-width:54px; font-size:0.89em;}
+      .nft-card {min-width:160px;width:98vw;}
+      .mint-section{padding:10px;}
+      .dapp-card {margin-bottom: 1.4em;}
+    }
+    /* Dapp Footer Navigation */
+    .dapp-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.3em 2.1em;
+      margin: 2.4em auto 1.6em auto;
+      max-width: 980px;
+      background: rgba(30,0,0,0.07);
+      border-radius: 22px;
+      padding: 2em 1.5em 1em 1.5em;
+      box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+    }
+    .dapp-card {
+      background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border: 2.1px solid #ffd70088;
+      border-radius: 14px;
+      box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+      text-align: center;
+      padding: 1.3em 1.1em 1.2em 1.1em;
+      margin-bottom: 0.2em;
+      transition: box-shadow .17s, transform .16s;
+    }
+    .dapp-card:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+      border-color: #ffd700ee;
+      background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon {
+      font-size: 2.05em;
+      display: block;
+      margin-bottom: 0.18em;
+      filter: drop-shadow(0 0 9px #ffd70090);
+    }
+    .launch-button {
+      margin-top: 1.0em;
+      display: inline-block;
+      padding: 0.65em 1.65em;
+      border-radius: 8px;
+      background: #b30000;
+      color: #ffd700;
+      border: 1.7px solid #ffd700ab;
+      font-weight: bold;
+      font-size: 1em;
+      text-decoration: none;
+      transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+      box-shadow: 0 1.5px 8px #ffd70024;
+    }
+    .launch-button:hover, .launch-button:focus {
+      background: #ffd700;
+      color: #b30000;
+      box-shadow: 0 0 16px #ffd70088;
+    }
+    @media (max-width: 780px) {
+      .dapp-list { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    }
+    @media (max-width: 530px) {
+      .dapp-list { grid-template-columns: 1fr; }
+      .dapp-card { margin-bottom: 1.4em; }
+    }
+    footer {
+      text-align: center;
+      color: #ffcc70;
+      font-size: 1em;
+      margin: 1.2em 0 0.2em 0;
+      letter-spacing: 0.03em;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <h1>🎵 Music NFT Marketplace</h1>
+    <div class="wallet-bar-top">
+      <label for="chain-select">Chain:</label>
+      <select id="chain-select">
+        <option value="solana">Solana (Phantom)</option>
+        <option value="ethereum">Ethereum (MetaMask)</option>
+        <option value="bsc">BNB Chain (MetaMask)</option>
+        <option value="cardano">Cardano (Nami/Eternl)</option>
+        <option value="zorg">ZORG</option>
+        <option value="rednode">REDNODE</option>
+      </select>
+      <button id="connect-wallet">🔗 Connect Wallet</button>
+      <button id="import-wallet">🔑 Import Wallet</button>
+      <input id="import-address" type="text" placeholder="Paste address and hit Enter" style="width:170px;display:none;">
+      <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+    </div>
+  </div>
+  <div class="rewards-bar" id="rewards-bar"></div>
+  <div class="gallery-list" id="galleryList"></div>
+  <!-- MINT FORM SECTION -->
+  <div class="mint-section">
+    <h2>Mint Your Music NFT</h2>
+    <div id="mintLivePreview"></div>
+    <form id="mint-form" autocomplete="off">
+      <div class="mint-form-row">
+        <label for="mintTitle">NFT Title:</label>
+        <input id="mintTitle" placeholder="e.g. Album Bundle" required>
+      </div>
+      <div class="mint-form-row">
+        <label for="mintQty">Quantity:</label>
+        <input id="mintQty" type="number" min="1" max="25" value="1" required>
+      </div>
+      <div class="mint-form-row">
+        <label for="mintChain">Chain:</label>
+        <select id="mintChain" required>
+          <option value="ethereum">Ethereum</option>
+          <option value="solana">Solana</option>
+          <option value="bsc">BNB Chain</option>
+          <option value="cardano">Cardano</option>
+        </select>
+      </div>
+      <div class="mint-form-row">
+        <label for="mintWallet">Wallet Address:</label>
+        <input id="mintWallet" placeholder="Paste destination wallet..." required>
+      </div>
+      <div class="mint-form-row">
+        <label>3D Model (.glb/.gltf):</label>
+        <input type="file" id="mintGLB" accept=".glb,.gltf">
+      </div>
+      <div class="mint-form-row">
+        <label>Background Video:</label>
+        <input type="file" id="mintVideo" accept="video/*">
+      </div>
+      <div class="mint-form-row">
+        <label>Audio:</label>
+        <input type="file" id="mintAudio" accept="audio/*">
+      </div>
+      <div class="mint-form-row">
+        <label>Thumbnail Image:</label>
+        <input type="file" id="mintImage" accept="image/*">
+      </div>
+      <button type="submit" id="mint-confirm-btn" disabled>Mint NFT</button>
+      <div class="mint-status" id="mintStatus"></div>
+    </form>
+  </div>
+  <!-- MODAL FOR NFT GALLERY PREVIEW -->
+  <div id="modalBG"></div>
+  <div id="nftModal">
+    <span class="modal-close" id="modalClose">&times;</span>
+    <div class="nft-modal-title" id="modalTitle"></div>
+    <div class="nft-modal-desc" id="modalDesc"></div>
+    <div id="model-viewer-wrap"></div>
+    <div class="modal-action-row">
+      <button class="modal-ar-btn" id="modalARBtn" style="display:none">View in AR</button>
+      <button class="modal-mint-btn" id="modalMintBtn">Mint This NFT</button>
+    </div>
+  </div>
+  <!-- Dapp Footer Navigation -->
+  <section class="dapp-list" id="dapps">
+    <article class="dapp-card">
+      <span class="dapp-icon">🎤</span>
+      <h2>Voice Changer</h2>
+      <p>Real-time audio manipulation</p>
+      <a class="launch-button" href="/voice-changer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">📋</span>
+      <h2>Quest Board</h2>
+      <p>Complete tasks, earn tokens</p>
+      <a class="launch-button" href="/quest-board">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🎹</span>
+      <h2>NFT Mixer</h2>
+      <p>Blend tokens and NFTs into new forms</p>
+      <a class="launch-button" href="/token-mixer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🖼️</span>
+      <h2>NFT Viewer</h2>
+      <p>Display owned NFTs</p>
+      <a class="launch-button" href="/nft-viewer">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🎮</span>
+      <h2>Game Portal</h2>
+      <p>Play blockchain mini-games</p>
+      <a class="launch-button" href="/game">Launch</a>
+    </article>
+    <article class="dapp-card">
+      <span class="dapp-icon">🛒</span>
+      <h2>Marketplace</h2>
+      <p>Buy/sell items with tokens</p>
+      <a class="launch-button" href="/marketplace">Launch</a>
+    </article>
+  </section>
+  <footer>
+    <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+  </footer>
+  <script type="module">
+    // --- Music Rewards Bar ---
+    const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+    const REWARDS = [
+      {id:'voice',  emoji:'🎤', label:"Voice"},
+      {id:'beat',   emoji:'🥁', label:"Beat"},
+      {id:'fx',     emoji:'✨', label:"FX"},
+      {id:'melody', emoji:'🎶', label:"Melody"},
+      {id:'bass',   emoji:'🎸', label:"Bass"},
+      {id:'custom', emoji:'🧩', label:"Custom"}
+    ];
+
+
+    const CHAIN_KEY  = 'mixer_current_chain';
+    const WALLET_KEY = 'mixer_current_wallet';
+    const rewardsKey = (chain,addr) => `mixer_tokens_${chain}_${addr}`;
+    function getWalletRewards(chain, addr){
+      if(!addr) return {};
+      const raw = localStorage.getItem(rewardsKey(chain,addr));
+      const base = Object.fromEntries(TRACK_IDS.map(id=>[id,25]));
+      if(!raw){ saveWalletRewards(chain,addr,base); return base; }
+      try{ return {...base, ...JSON.parse(raw)}; }catch{ return base; }
+    }
+    const saveWalletRewards = (chain,addr,obj)=>
+      addr && localStorage.setItem(rewardsKey(chain,addr),JSON.stringify(obj));
+
+    let currentChain  = 'solana';
+    let currentWallet = '';
+
+    const chainSelect        = document.getElementById('chain-select');
+    const connectBtn         = document.getElementById('connect-wallet');
+    const importBtn          = document.getElementById('import-wallet');
+    const importAddressInput = document.getElementById('import-address');
+    const walletMini         = document.getElementById('wallet-addr-mini');
+
+    function persistSession(){
+      localStorage.setItem(CHAIN_KEY , currentChain );
+      localStorage.setItem(WALLET_KEY, currentWallet||'');
+    }
+    function restoreSession(){
+      const savedChain  = localStorage.getItem(CHAIN_KEY );
+      const savedWallet = localStorage.getItem(WALLET_KEY);
+      if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+        currentChain = savedChain;
+        chainSelect.value = savedChain;
+      }
+      if(savedWallet){
+        currentWallet = savedWallet;
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` +
+          (currentWallet.length>13 ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6) : currentWallet);
+      }
+    }
+
+    chainSelect.addEventListener('change',e=>{
+      currentChain = e.target.value;
+      currentWallet = '';
+      walletMini.textContent = '';
+      importAddressInput.style.display='none';
+      persistSession();
+      renderRewardsBar(); renderGallery();
+    });
+
+    connectBtn.addEventListener('click',async()=>{
+      if(currentChain==='solana')             await connectPhantom();
+      else if(['ethereum','bsc'].includes(currentChain)) await connectMetamask(currentChain);
+      else if(currentChain==='cardano')       await connectCardano();
+      else                                     await connectCustom();
+      if(currentWallet) getWalletRewards(currentChain,currentWallet);
+      persistSession();
+      renderRewardsBar(); renderGallery();
+    });
+
+    importBtn.addEventListener('click',()=>{
+      importAddressInput.style.display='inline-block';
+      importAddressInput.value='';
+      importAddressInput.focus();
+    });
+    importAddressInput.addEventListener('keydown',e=>{
+      if(e.key!=='Enter' || !importAddressInput.value.trim()) return;
+      currentWallet = importAddressInput.value.trim();
+      walletMini.textContent = `${currentChain.toUpperCase()}: ` +
+        (currentWallet.length>13 ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6) : currentWallet);
+      importAddressInput.style.display='none';
+      if(currentWallet) getWalletRewards(currentChain,currentWallet);
+      persistSession();
+      renderRewardsBar(); renderGallery();
+    });
+
+    async function connectPhantom(){
+      if(!window.solana?.isPhantom){alert('Phantom not found.');return;}
+      const r = await window.solana.connect();
+      currentWallet = r.publicKey.toString();
+      walletMini.textContent = `SOL: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+    }
+    async function connectMetamask(chain){
+      if(!window.ethereum){alert('Metamask not found.');return;}
+      await window.ethereum.request({method:'eth_requestAccounts'});
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      currentWallet  = await provider.getSigner().getAddress();
+      walletMini.textContent = `${chain.toUpperCase()}: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+    }
+    async function connectCardano(){
+      const api = window.cardano?.nami || window.cardano?.eternl;
+      if(!api){alert('Install Nami or Eternl.');return;}
+      const walletApi = await api.enable();
+      currentWallet   = toBech32("addr", await walletApi.getChangeAddress());
+      walletMini.textContent = `ADA: ${currentWallet.slice(0,12)}...${currentWallet.slice(-7)}`;
+    }
+    async function connectCustom(){
+      currentWallet = prompt(`Enter your ${currentChain.toUpperCase()} wallet address:`)||'';
+      if(currentWallet){
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` +
+          (currentWallet.length>13 ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6) : currentWallet);
+      }
+    }
+
+    function renderRewardsBar() {
+      const bar = document.getElementById('rewards-bar');
+      if(!currentWallet){
+        bar.innerHTML = '<span style="opacity:0.6;">Connect wallet to view your rewards</span>';
+        return;
+      }
+      const rewards = getWalletRewards(currentChain, currentWallet);
+      bar.innerHTML = REWARDS.map(r => {
+        const val = rewards[r.id] || 0;
+        return `\n          <div class="reward-chip">\n            <span class="emoji">${r.emoji}</span>\n            <span class="label">${r.label}</span>\n            <span class="supply-box">${val}</span>\n          </div>`;
+      }).join('');
+    }
+    renderRewardsBar();
+    // --- Gallery Data (Music NFTs) ---
+    const DEMO_NFTS = [
+      {
+        name: "Album Bundle: Neon Nights",
+        description: "Full album bundle (7 tracks + bonus art).",
+        type: "Album Bundle",
+        reward: "bundle",
+        supply: 3,
+        price: "3.3 ETH",
+        thumb: "https://cdn.pixabay.com/photo/2016/11/29/08/48/band-1867982_1280.jpg",
+        glb: "",
+        video: "",
+        audio: "https://cdn.pixabay.com/audio/2023/03/13/audio_12a345ba9e.mp3"
+      },
+      {
+        name: "Sampler Pack: Classic FX",
+        description: "Essential FX and samples for mixing.",
+        type: "Sampler Pack",
+        reward: "sampler",
+        supply: 5,
+        price: "1.7 ETH",
+        thumb: "https://cdn.pixabay.com/photo/2015/07/17/22/43/drums-849026_1280.jpg",
+        glb: "",
+        video: "",
+        audio: "https://cdn.pixabay.com/audio/2022/10/16/audio_124eaa9bcd.mp3"
+      },
+      {
+        name: "Vocal Power",
+        description: "Studio-quality vocal sample NFT.",
+        type: "Voice",
+        reward: "voice",
+        supply: 8,
+        price: "0.8 ETH",
+        thumb: "https://cdn.pixabay.com/photo/2014/08/13/20/14/microphone-416992_1280.jpg",
+        glb: "",
+        video: "",
+        audio: "https://cdn.pixabay.com/audio/2022/08/20/audio_128bfa0bd1.mp3"
+      },
+      {
+        name: "Melody Maker",
+        description: "Generate endless melodies with this NFT.",
+        type: "Melody",
+        reward: "melody",
+        supply: 7,
+        price: "0.5 ETH",
+        thumb: "https://cdn.pixabay.com/photo/2017/01/13/19/38/piano-1975676_1280.jpg",
+        glb: "",
+        video: "",
+        audio: "https://cdn.pixabay.com/audio/2022/10/16/audio_124eaa9bcd.mp3"
+      },
+      {
+        name: "3D Soundstage NFT",
+        description: "Immersive 3D audio/visual. Try AR Viewer.",
+        type: "Bass",
+        reward: "bass",
+        supply: 2,
+        price: "2.1 ETH",
+        thumb: "https://modelviewer.dev/assets/poster-robot.png",
+        glb: "https://modelviewer.dev/shared-assets/models/RobotExpressive.glb",
+        video: "",
+        audio: "https://cdn.pixabay.com/audio/2022/12/19/audio_12f82b160a.mp3"
+      }
+    ];
+    const SESSION_NFT_KEY = 'session_nfts';
+    function loadSessionNFTs(){
+      try{ return JSON.parse(localStorage.getItem(SESSION_NFT_KEY)) || []; }catch{return []; }
+    }
+    function saveSessionNFTs(){
+      localStorage.setItem(SESSION_NFT_KEY, JSON.stringify(sessionNFTs));
+    }
+    let sessionNFTs = loadSessionNFTs();
+    let NFTs = [];
+
+    const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=';
+
+    function mapItemToNFT(item){
+      const type = item.type || 'image';
+      const url = item.file_url || item.media_url;
+      return {
+        name: item.title,
+        description: item.description || '',
+        type: type,
+        reward: type,
+        supply: 1,
+        price: item.price || '0',
+        thumb: type === 'image' ? url : PLACEHOLDER,
+        glb:   type === 'model' ? url : '',
+        video: type === 'video' ? url : '',
+        audio: type === 'audio' ? url : ''
+      };
+    }
+
+    async function fetchGalleryItems(){
+      let items = [];
+      try{
+        const resp = await fetch('/marketplace/api/items');
+        const data = await resp.json();
+        if(Array.isArray(data)){
+          items = data.map(mapItemToNFT);
+        }
+      }catch(err){ console.error('fetch items failed', err); }
+      if(!items.length) items = DEMO_NFTS.slice();
+
+      // remove session NFTs that now exist in DB
+      sessionNFTs = sessionNFTs.filter(snft => !items.some(nft =>
+        nft.thumb===snft.thumb && nft.video===snft.video &&
+        nft.audio===snft.audio && nft.glb===snft.glb));
+      NFTs = sessionNFTs.concat(items);
+      saveSessionNFTs();
+      renderGallery();
+    }
+
+    // --- Reward Lookup ---
+    const rewardMap = {};
+    REWARDS.forEach(r => rewardMap[r.id] = r);
+
+    // --- GALLERY RENDER ---
+    const galleryDiv = document.getElementById('galleryList');
+
+    function getCardPreviewHTML(nft){
+      if(nft.video){
+        return `<video class="nft-thumb" src="${nft.video}" autoplay muted loop playsinline></video>`;
+      }
+      if(nft.glb){
+        return `<model-viewer class="nft-thumb" src="${nft.glb}" camera-controls autoplay></model-viewer>`;
+      }
+      if(nft.audio){
+        return `<div class="nft-thumb" style="display:flex;align-items:center;justify-content:center;font-size:42px;">🎵</div>`;
+      }
+      return `<img class="nft-thumb" src="${nft.thumb}" alt="NFT thumbnail">`;
+    }
+
+    function renderGallery() {
+      galleryDiv.innerHTML = "";
+      NFTs.forEach((nft, idx) => {
+        const rwd = rewardMap[nft.reward] || {};
+        const card = document.createElement('div');
+        card.className = 'nft-card';
+        card.innerHTML = `
+          ${getCardPreviewHTML(nft)}
+          <div class="nft-title">${nft.name}</div>
+          <div class="nft-desc">${nft.description}</div>
+          <div class="nft-meta-row">
+            <span class="nft-reward-badge">${rwd.emoji || "🎵"} ${rwd.label || nft.type}</span>
+            <span class="nft-supply">Supply: ${nft.supply}</span>
+            <span class="nft-price">${nft.price}</span>
+          </div>
+          <div class="nft-action-btns">
+            ${nft.glb ? `<button class="ar-view-btn" onclick="event.stopPropagation(); openNFTModal(${idx}, true)">AR Viewer</button>` : ""}
+            <button class="mint-btn" onclick="event.stopPropagation(); openNFTModal(${idx}, false)">Mint</button>
+          </div>
+        `;
+        card.onclick = () => openNFTModal(idx, !!nft.glb);
+        galleryDiv.appendChild(card);
+      });
+    }
+
+
+    // ---- MODAL LOGIC ----
+    window.openNFTModal = openNFTModal; // for onClick in HTML
+    const modalBG = document.getElementById('modalBG');
+    const nftModal = document.getElementById('nftModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const viewerWrap = document.getElementById('model-viewer-wrap');
+    const modalMintBtn = document.getElementById('modalMintBtn');
+    const modalARBtn = document.getElementById('modalARBtn');
+    document.getElementById('modalClose').onclick = closeModal;
+    modalBG.onclick = closeModal;
+
+    let currentNFTIndex = 0;
+
+    function openNFTModal(idx, arFocus = false) {
+      currentNFTIndex = idx;
+      const nft = NFTs[idx];
+      modalTitle.textContent = nft.name;
+      modalDesc.textContent = nft.description;
+      viewerWrap.innerHTML = getNFTLiveSceneHTML({
+        video: nft.video,
+        glb: nft.glb,
+        audio: nft.audio,
+        image: nft.thumb
+      });
+      initGLBMoveable(viewerWrap);
+      modalBG.style.display = 'block';
+      nftModal.style.display = 'block';
+
+      // Show AR button if 3D
+      if (nft.glb) {
+        modalARBtn.style.display = "";
+        modalARBtn.onclick = () => {
+          // Use <model-viewer> for AR launch on mobile
+          const arDiv = document.createElement('div');
+          arDiv.innerHTML = `
+            <model-viewer src="${nft.glb}" camera-controls auto-rotate ar ar-modes="scene-viewer quick-look webxr" style="width:100vw;height:90vh;"></model-viewer>
+          `;
+          document.body.appendChild(arDiv);
+          setTimeout(() => document.body.removeChild(arDiv), 3000); // quick preview, remove after 3s
+        };
+        // Optionally: focus AR button first if launched from AR Viewer button
+        if (arFocus) modalARBtn.focus();
+      } else {
+        modalARBtn.style.display = "none";
+      }
+      modalMintBtn.textContent = "Mint This NFT";
+      modalMintBtn.onclick = () => {
+        modalMintBtn.textContent = "Minting...";
+        setTimeout(() => { modalMintBtn.textContent = "Mint This NFT"; alert("Mint simulated! Connect to wallet/backend for real minting."); }, 1400);
+      };
+    }
+    function closeModal() {
+      nftModal.style.display = 'none';
+      modalBG.style.display = 'none';
+      viewerWrap.innerHTML = '';
+    }
+
+    // ---- NFT/AR Viewer Helper ----
+    function getNFTLiveSceneHTML({video, glb, audio, image}) {
+      let bgElem = "";
+      if (video) {
+        bgElem = `<video src="${video}" autoplay muted loop playsinline style="position:absolute;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none;border-radius:13px;"></video>`;
+      } else if (image) {
+        bgElem = `<img src="${image}" style="position:absolute;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none;border-radius:13px;" />`;
+      }
+      const modelElem = glb
+        ? `<div class="glb-moveable" id="glbMover">
+            <model-viewer
+              src="${glb}"
+              camera-controls auto-rotate ar ar-modes="scene-viewer quick-look webxr"
+              background-color="rgba(0,0,0,0)"
+              shadow-intensity="1"
+              exposure="1.0"
+              style="width:100%;height:100%;">
+              <button slot="ar-button"
+                style="background:#b30000;color:#ffd700;padding:10px 18px;border-radius:9px;font-size:16px;position:absolute;left:12px;top:12px;z-index:10;">
+                🔍 View in AR
+              </button>
+            </model-viewer>
+          </div>`
+        : "";
+      const audioElem = audio
+        ? `<div style="position:absolute;bottom:15px;left:15px;z-index:3;background:#ffd70010;padding:7px 14px;border-radius:8px;"><audio src="${audio}" controls autoplay loop></audio></div>`
+        : "";
+      return `
+        <div style="width:100%;height:100%;position:relative;">
+          ${bgElem}
+          ${modelElem}
+          ${audioElem}
+        </div>
+      `;
+    }
+
+    function initGLBMoveable(container){
+      const mover = container.querySelector('#glbMover');
+      if(!mover) return;
+      const prev = window.__glbMoveHandlers;
+      if(prev){
+        document.removeEventListener('mousemove', prev.move);
+        document.removeEventListener('mouseup', prev.up);
+      }
+      let moving=false,startX=0,startY=0,startL=0,startT=0;
+      function onMove(e){
+        if(!moving) return;
+        let left = startL + e.clientX - startX;
+        let top = startT + e.clientY - startY;
+        left=Math.max(0,Math.min(container.offsetWidth - mover.offsetWidth,left));
+        top=Math.max(0,Math.min(container.offsetHeight - mover.offsetHeight,top));
+        mover.style.left = left + 'px';
+        mover.style.top = top + 'px';
+      }
+      function onUp(){ moving=false; mover.style.cursor='grab'; }
+      mover.onmousedown = function(e){
+        moving=true;
+        startX=e.clientX; startY=e.clientY;
+        startL=parseInt(mover.style.left||mover.offsetLeft);
+        startT=parseInt(mover.style.top||mover.offsetTop);
+        mover.style.cursor='grabbing';
+        e.preventDefault();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      window.__glbMoveHandlers={move:onMove,up:onUp};
+    }
+
+    // ---- MINT LIVE PREVIEW (ON FILE SELECT) ----
+    function updateMintLivePreview() {
+      const video = document.getElementById("mintVideo").files[0];
+      const glb = document.getElementById("mintGLB").files[0];
+      const audio = document.getElementById("mintAudio").files[0];
+      const image = document.getElementById("mintImage").files[0];
+      const previewDiv = document.getElementById("mintLivePreview");
+      previewDiv.innerHTML = "";
+
+      const videoUrl = video ? URL.createObjectURL(video) : null;
+      const glbUrl = glb ? URL.createObjectURL(glb) : null;
+      const audioUrl = audio ? URL.createObjectURL(audio) : null;
+      const imageUrl = image ? URL.createObjectURL(image) : null;
+
+      previewDiv.innerHTML = getNFTLiveSceneHTML({
+        video: videoUrl,
+        glb: glbUrl,
+        audio: audioUrl,
+        image: imageUrl
+      });
+      initGLBMoveable(previewDiv);
+    }
+
+    // ---- MINT FORM LOGIC ----
+    function validateMintForm() {
+      const title = document.getElementById("mintTitle").value.trim();
+      const qty = parseInt(document.getElementById("mintQty").value, 10);
+      const wallet = document.getElementById("mintWallet").value.trim();
+      const glb = document.getElementById("mintGLB").files[0];
+      const video = document.getElementById("mintVideo").files[0];
+      const image = document.getElementById("mintImage").files[0];
+      let valid = !!title && !!wallet && qty > 0 && (glb || video || image);
+      document.getElementById("mint-confirm-btn").disabled = !valid;
+      return valid;
+    }
+
+    ["mintTitle","mintQty","mintChain","mintWallet"].forEach(id => {
+      document.getElementById(id).oninput = function() {
+        validateMintForm();
+      };
+    });
+    ["mintAudio","mintVideo","mintGLB","mintImage"].forEach(id => {
+      document.getElementById(id).onchange = function() {
+        updateMintLivePreview();
+        validateMintForm();
+      };
+    });
+
+    document.getElementById("mint-form").onsubmit = async function(e) {
+      e.preventDefault();
+      if (!validateMintForm()) return false;
+      const status = document.getElementById("mintStatus");
+      status.textContent = "⏳ Uploading NFT...";
+
+      const formElem = document.getElementById("mint-form");
+      const formData = new FormData(formElem);
+      formData.set('title', document.getElementById("mintTitle").value.trim());
+      formData.set('description', 'Freshly minted by you.');
+      formData.set('wallet', document.getElementById("mintWallet").value.trim());
+      formData.set('chain', document.getElementById("mintChain").value);
+      formData.set('price', '0');
+
+      const glbFile   = document.getElementById("mintGLB").files[0];
+      const videoFile = document.getElementById("mintVideo").files[0];
+      const audioFile = document.getElementById("mintAudio").files[0];
+      const imageFile = document.getElementById("mintImage").files[0];
+
+      const previewNFT = {
+        name: formData.get('title'),
+        description: formData.get('description'),
+        type: glbFile ? 'model' : videoFile ? 'video' : imageFile ? 'image' : 'audio',
+        reward: glbFile ? 'model' : videoFile ? 'video' : imageFile ? 'image' : 'audio',
+        supply: parseInt(document.getElementById("mintQty").value, 10),
+        price: '0',
+        thumb: imageFile ? URL.createObjectURL(imageFile) : PLACEHOLDER,
+        glb:   glbFile   ? URL.createObjectURL(glbFile)   : '',
+        video: videoFile ? URL.createObjectURL(videoFile) : '',
+        audio: audioFile ? URL.createObjectURL(audioFile) : ''
+      };
+      sessionNFTs.unshift(previewNFT);
+      saveSessionNFTs();
+      renderGallery();
+
+      try {
+        const draftResp = await fetch('/marketplace/api/save_layered', {method:'POST', body: new FormData(formElem)});
+        const draftData = await draftResp.json();
+        if(draftData.item_id){
+          formData.append('item_id', draftData.item_id);
+        }
+        const resp = await fetch('/marketplace/api/mint_layered', {method:'POST', body: formData});
+        const data = await resp.json();
+        if(data.status === 'success'){
+          status.textContent = '✅ Layered NFT minted!';
+        } else {
+          status.textContent = '❌ ' + (data.message || 'Mint failed');
+        }
+      } catch(err){
+        console.error(err);
+        status.textContent = '❌ Upload failed';
+      } finally {
+        saveSessionNFTs();
+        document.getElementById("mint-form").reset();
+        updateMintLivePreview();
+        validateMintForm();
+        fetchGalleryItems();
+      }
+    };
+    // ---- INIT ON LOAD ----
+    document.addEventListener('DOMContentLoaded', function() {
+      restoreSession();
+      renderRewardsBar();
+      updateMintLivePreview();
+      validateMintForm();
+      fetchGalleryItems();
+      setInterval(fetchGalleryItems, 15000);
+    });
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+*.db
+.env
+multi-chain-marketplace/node_modules/
+multi-chain-marketplace/artifacts/
+venv/

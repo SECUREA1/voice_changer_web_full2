@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quest Board – Daily Mixer Token Rewards</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+
+  <!-- —————————————————————  Styling  ————————————————————— -->
+  <style>
+    /* (identical CSS – no omissions) */
+    body{font-family:'Segoe UI',sans-serif;background:#0a0906;color:#ffd700;margin:0;min-height:100vh}
+    a{color:#ffd700}
+    h2{text-align:center;margin-top:26px;margin-bottom:16px}
+    .wallet-bar-top{display:flex;align-items:center;justify-content:flex-end;background:rgba(30,30,30,.92);border-bottom:2.5px solid #ffd700;padding:.73rem 2.1rem .73rem 1.4rem;border-radius:0 0 17px 17px;font-size:1.11em;min-height:48px;position:sticky;top:0;z-index:99;box-shadow:0 5px 28px #ffd70016;flex-wrap:wrap;gap:1em}
+    .wallet-bar-top>*{margin-left:1.4em}
+    .wallet-bar-top select,.wallet-bar-top button,.wallet-bar-top input[type=text]{padding:7px 13px;font-size:1rem;border-radius:7px;border:1px solid #ffd70060;background:#181818;color:#ffd700;outline:none;box-shadow:none;transition:border .2s}
+    .wallet-bar-top button{background:#b30000;color:#ffd700;border:1.5px solid #ffd700;cursor:pointer;font-weight:600;transition:background .18s}
+    .wallet-bar-top button:hover,.wallet-bar-top select:focus{background:#ff0000;border:1.5px solid #ffd700}
+    .wallet-addr-mini{font-weight:600;background:#260101;border-radius:6px;border:1.1px solid #ffd700;padding:4px 13px;font-size:1.04em;margin-left:1.2em}
+    .rewards-bar-outer{width:100%;display:flex;justify-content:center;margin-bottom:24px;margin-top:4px;position:relative;z-index:10}
+    .rewards-bar{margin:0 auto 1.8em auto;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0.85em;justify-content:center;align-items:flex-end;max-width:99vw;background:linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);border-radius:18px;box-shadow:0 2px 22px #ffd70021, 0 0 40px #b3000011;border:2.1px solid #ffd700cc;padding:0.62em 0.8em 0.38em 0.8em;scrollbar-width:none;-ms-overflow-style:none;align-items:stretch}
+    .rewards-bar::-webkit-scrollbar{display:none}
+    .reward-chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:54px;max-width:90px;margin:0 0.04em;padding:0.13em 0.12em 0.26em 0.13em;background:none;border:none;font-size:1em;cursor:pointer;position:relative;border-radius:13px;box-shadow:0 2px 14px #ffd70017;transition:transform .14s, box-shadow .14s;border:1.5px solid transparent}
+    .reward-chip .emoji{font-size:1.6em;margin-bottom:.02em;filter:drop-shadow(0 0 8px #ffd70063);animation:pulseGlow 1.5s infinite alternate;text-shadow:0 0 12px #ffd700a8}
+    .reward-chip .label{font-size:1em;font-weight:700;color:#ffd700;margin:0.09em 0 0.11em 0;white-space:nowrap;text-align:center;text-shadow:0 1px 7px #b3000032}
+    .reward-chip .supply-box{background:linear-gradient(90deg, #fffbe6 60%, #ffd700 100%);color:#b30000;border-radius:9px;box-shadow:0 2px 12px #ffd70060,0 0 8px #b3000023;font-weight:bold;padding:0.21em 0.92em 0.17em 0.92em;font-size:1.05em;margin-top:0.05em;min-width:34px;text-align:center;border:2px solid #ffd70099;animation:supplyGlow 2.2s infinite alternate}
+    .reward-chip:focus,.reward-chip:hover{transform:scale(1.10);box-shadow:0 4px 36px #ffd700e0,0 2px 12px #b3000050;z-index:2;border-color:#ffd700}
+    @keyframes pulseGlow{from{filter:drop-shadow(0 0 8px #ffd70090);}to{filter:drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow{from{box-shadow:0 2px 12px #ffd70041;}to{box-shadow:0 0 20px #ffd700ee,0 2px 12px #ffd70030;}}
+    @media (max-width:900px){.rewards-bar{gap:.33em;padding:.45em .12em}.reward-chip{min-width:90px;max-width:105px;font-size:.98em}.reward-chip .emoji{font-size:1.26em}.reward-chip .label{font-size:1em}.reward-chip .supply-box{font-size:.99em;padding:.13em .8em}}
+    @media (max-width:560px){.reward-chip{min-width:62px;max-width:82px;padding:.14em .11em;font-size:.9em}.reward-chip .emoji{font-size:1.02em}.reward-chip .label{font-size:.98em}.wallet-bar-top{font-size:1em;padding:.73rem .5rem}}
+    .wallet-cta-block{max-width:570px;margin:38px auto 20px auto;background:linear-gradient(120deg,#232323 60%,#ffd7001a 100%);border-radius:20px;box-shadow:0 2px 28px #ffd70033,0 1px 0 #fffbe611;padding:32px 18px 25px 18px;text-align:center}
+    .wallet-controls-row{display:flex;flex-wrap:wrap;gap:15px;align-items:center;justify-content:center;margin:16px auto 6px auto}
+    .golden-glow{color:#ffd700;text-shadow:0 0 14px #ffd700bb,0 1px 0 #fffbe611}
+    .functions-panel,.admin-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;margin:18px auto 10px auto}
+    .functions-panel{background:#222213;border-radius:16px;padding:12px 14px}
+    .admin-bar{background:#181818;border-radius:11px;padding:9px 12px;margin-bottom:0}
+    .admin-bar input[type=password]{width:80px}
+    select,button,input[type=text],input[type=number],input[type=password],textarea{padding:7px 13px;margin:6px 3px;font-size:1rem;border-radius:8px;border:1.5px solid #ffd70060;background:#181818;color:#ffd700;outline:none;box-shadow:none;transition:border .2s}
+    button{background:#b30000;color:#ffd700;border:1.5px solid #ffd700;font-weight:600;cursor:pointer;transition:background .18s}
+    button:hover,select:focus{background:#ff0000;border:1.5px solid #ffd700}
+    .admin-only{border:2.5px solid #ffd700cc;background:#2c230d;color:#ffd700}
+    .admin-hint{font-size:.97em;color:#ffd700c0;margin-left:6px}
+    #wallet-token-inventory{margin:0 auto 18px auto;background:#232323;color:#ffd700;padding:14px 13px 10px 13px;border-radius:14px;box-shadow:0 2px 14px #ffd7002a;max-width:370px;font-size:1.11em}
+    #wallet-token-inventory .token-balance{margin-right:12px;display:inline-block;padding:5px 8px;border-radius:8px;background:#181818;color:#ffd700;border:1.5px solid #ffd70044}
+    .quest-container{display:flex;flex-direction:column;gap:32px;margin:0 auto 26px auto;max-width:760px}
+    .quest{background:linear-gradient(135deg,#232323 70%,#ffd7001f 100%);border:3.5px solid #ffd700;border-radius:21px;padding:22px 16px 16px 16px;box-shadow:0 2px 22px #ffd70048,0 1px 0 #fffbe611;position:relative;min-height:130px;transition:box-shadow .18s;display:flex;flex-direction:row;align-items:center;gap:24px}
+    .quest.locked{opacity:.52;background:#343434;filter:grayscale(.7)}
+    .quest .icon-badge{width:64px;height:64px;border-radius:13px;border:3px solid #ffd700;background:#fffbe6;display:flex;align-items:center;justify-content:center;font-size:2.6em;margin-right:12px;box-shadow:0 0 18px #ffd700aa;flex-shrink:0;transition:box-shadow .16s}
+    .quest-content{flex:1;display:flex;flex-direction:column;gap:2px}
+    .quest-title{font-size:1.21em;font-weight:bold;margin:0 0 3px 0;color:#fffbe6;letter-spacing:.02em;text-shadow:0 1px 8px #ffd70033}
+    .quest .desc{margin-bottom:.6em;color:#fff7c1;font-size:1.07em}
+    .quest .reward{margin-bottom:.2em;font-size:1.09em;font-weight:600;color:#ffd700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .reward-token{background:linear-gradient(90deg,#fffbe6 70%,#ffd700 100%);color:#b30000;border-radius:6px;padding:2px 10px 2px 8px;font-weight:700;font-size:1.01em;box-shadow:0 0 6px #ffd70088;margin-right:4px;display:inline-flex;align-items:center}
+    .reward-token .tok-emoji{margin-right:4px}
+    .quest .quest-category{font-size:.94em;margin:2px 0 7px 0;color:#ffe066;font-weight:500;background:#232310;border-radius:7px;padding:1px 10px;display:inline-block;letter-spacing:.04em}
+    .quest .admin-controls{margin-top:7px}
+    .quest .admin-controls button{margin-right:7px;background:#ffd700;color:#b30000;border:1.5px solid #b30000;font-weight:700}
+    .quest .admin-controls button:hover{background:#fffbe6;color:#b30000}
+    .reward-type-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .reward-type-row input[type=number]{width:55px}
+    footer{width:100%;margin:48px 0 0 0;padding:0 0 36px 0;background:transparent;text-align:center;color:#ffcc70;font-size:1em;letter-spacing:0.03em}
+    .footer-wallet-bar{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;margin-bottom:19px}
+    /* Dapp Footer Navigation */
+    .dapp-list{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:1.3em 2.1em;
+      margin:2.4em auto 1.6em auto;
+      max-width:980px;
+      background:rgba(30,0,0,0.07);
+      border-radius:22px;
+      padding:2em 1.5em 1em 1.5em;
+      box-shadow:0 4px 30px #ffd70013,0 1px 10px #b3000022;
+    }
+    .dapp-card{
+      background:linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border:2.1px solid #ffd70088;
+      border-radius:14px;
+      box-shadow:0 2px 18px #ffd70017,0 1px 9px #ffd70013;
+      text-align:center;
+      padding:1.3em 1.1em 1.2em 1.1em;
+      margin-bottom:.2em;
+      transition:box-shadow .17s,transform .16s;
+    }
+    .dapp-card:hover{
+      transform:translateY(-4px) scale(1.04);
+      box-shadow:0 6px 28px #ffd70070,0 1px 20px #b3000020;
+      border-color:#ffd700ee;
+      background:linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon{font-size:2.05em;display:block;margin-bottom:.18em;filter:drop-shadow(0 0 9px #ffd70090);}
+    .dapp-card a{
+      margin-top:1em;display:inline-block;padding:.65em 1.65em;border-radius:8px;background:#b30000;color:#ffd700;border:1.7px solid #ffd700ab;font-weight:bold;font-size:1em;text-decoration:none;transition:background .17s,color .14s,box-shadow .18s;box-shadow:0 1.5px 8px #ffd70024;
+    }
+    .dapp-card a:hover,.dapp-card a:focus{background:#ffd700;color:#b30000;box-shadow:0 0 16px #ffd70088;}
+    @media (max-width:780px){.dapp-list{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}}
+    @media (max-width:530px){.dapp-list{grid-template-columns:1fr}.dapp-card{margin-bottom:1.4em}}
+  </style>
+</head>
+
+<body>
+  <!-- ————————————————— Header / Wallet ————————————————— -->
+  <div class="wallet-bar-top">
+    <label for="chain-select">Chain:</label>
+    <select id="chain-select">
+      <option value="solana">Solana (Phantom)</option>
+      <option value="ethereum">Ethereum (MetaMask)</option>
+      <option value="bsc">BNB Chain (MetaMask)</option>
+      <option value="cardano">Cardano (Nami/Eternl)</option>
+      <option value="zorg">ZORG</option>
+      <option value="rednode">REDNODE</option>
+    </select>
+    <button id="connect-wallet">🔗 Connect Wallet</button>
+    <button id="import-wallet">🔑 Import Wallet</button>
+    <input id="import-address" type="text" placeholder="Paste address and hit Enter" style="width:170px;display:none;">
+    <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+  </div>
+
+  <!-- ————————————————— Rewards ————————————————— -->
+  <h2 style="margin-top:28px;margin-bottom:12px;font-size:2em;">
+    Quest Board: <span class="golden-glow">Daily Mixer Token Rewards</span>
+  </h2>
+
+  <div class="rewards-bar-outer"><div id="rewards-bar" class="rewards-bar"></div></div>
+
+  <div class="wallet-cta-block"><div id="wallet-token-inventory"></div></div>
+
+  <!-- ————————————————— Admin / Filters ————————————————— -->
+  <div class="admin-bar">
+    <span id="admin-status">Admin: <b id="is-admin">OFF</b></span>
+    <button onclick="toggleAdmin()">Toggle Admin</button>
+    <input id="admin-password" type="password" placeholder="Admin Password">
+    <span class="admin-hint">admin123 (demo)</span>
+  </div>
+
+  <div class="functions-panel" id="functions-panel">
+    <button id="add-quest-btn" class="admin-only" style="display:none;" onclick="showQuestCreator()">➕ Create Quest</button>
+    <button onclick="resetClaims()">🔄 Reset All Claims</button>
+    <button onclick="exportQuests()">⬇ Export Quests</button>
+    <button onclick="importQuestsPrompt()">⬆ Import Quests</button>
+    <label class="category-filter">Category:
+      <select id="category-select" onchange="renderQuests()"><option value="">All</option></select>
+    </label>
+    <span id="quest-count"></span>
+  </div>
+
+  <!-- ————————————————— Quest Creator ————————————————— -->
+  <div id="quest-creator-panel" style="display:none;background:#181818;padding:16px;border-radius:12px;margin:0 auto 22px auto;max-width:480px;">
+    <h3 style="margin-top:0;">Add/Edit Quest</h3>
+    <form id="quest-create-form">
+      <input type="hidden" id="edit-id" value="">
+      <input id="new-title" type="text" placeholder="Quest Title" required><br>
+      <textarea id="new-desc" placeholder="Quest Description" required></textarea><br>
+      <div id="admin-reward-types"></div>
+      <select id="new-badge">
+        <option value="guitar">Guitar</option>
+        <option value="stage">Stage</option>
+        <option value="beats">Beats</option>
+        <option value="mic">Mic Token</option>
+      </select>
+      <input id="new-category" type="text" placeholder="Category (ex: Social, NFT, Community)"><br>
+      <button id="quest-save-btn" type="submit">Save Quest</button>
+      <button type="button" onclick="hideQuestCreator()">Cancel</button>
+    </form>
+  </div>
+
+  <!-- ————————————————— Quests ————————————————— -->
+  <div id="quest-container" class="quest-container"></div>
+
+  <!-- ————————————————— Footer ————————————————— -->
+  <footer>
+    <div class="footer-wallet-bar"><span style="color:#ffd700b5;">Explore More:</span></div>
+    <div class="dapp-list">
+      <article class="dapp-card">
+        <span class="dapp-icon">🎤</span>
+        <h2>Voice Changer</h2>
+        <p>Real-time audio manipulation</p>
+        <a href="/voice-changer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">📋</span>
+        <h2>Quest Board</h2>
+        <p>Complete tasks, earn tokens</p>
+        <a href="/quest-board">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎹</span>
+        <h2>NFT Mixer</h2>
+        <p>Blend tokens and NFTs into new forms</p>
+        <a href="/token-mixer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🖼️</span>
+        <h2>NFT Viewer</h2>
+        <p>Display owned NFTs</p>
+        <a href="/nft-viewer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎮</span>
+        <h2>Game Portal</h2>
+        <p>Play blockchain mini-games</p>
+        <a href="/game">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🛒</span>
+        <h2>Marketplace</h2>
+        <p>Buy/sell items with tokens</p>
+        <a href="/marketplace">Launch</a>
+      </article>
+    </div>
+    <p style="text-align:center;margin:2.2em 0 0.2em 0;color:#ffcc70;font-size:1em;">© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+  </footer>
+
+  <!-- —————————————————–––– Script  ——————————————————— -->
+  <script>
+  /* ---------- 0.  GLOBAL SESSION KEYS ---------- */
+  const CHAIN_KEY  = 'mixer_current_chain';
+  const WALLET_KEY = 'mixer_current_wallet';
+
+  /* ---------- 1.  TRACK DEFINITIONS ---------- */
+  const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+  const REWARDS = [
+    {id:'voice',  emoji:'🎤', label:'Voice'},
+    {id:'beat',   emoji:'🥁', label:'Beat'},
+    {id:'fx',     emoji:'✨', label:'FX'},
+    {id:'melody', emoji:'🎶', label:'Melody'},
+    {id:'bass',   emoji:'🎸', label:'Bass'},
+    {id:'custom', emoji:'🧩', label:'Custom'}
+  ];
+  const TRACKS = REWARDS.filter(r=>TRACK_IDS.includes(r.id));
+
+  /* ---------- 2.  TOKEN STORAGE HELPERS ---------- */
+  const rewardsKey = (chain,addr) => `mixer_tokens_${chain}_${addr}`;
+
+  function getWalletRewards(chain, addr){
+    if(!addr) return {};
+    const raw = localStorage.getItem(rewardsKey(chain,addr));
+    const base = Object.fromEntries(TRACK_IDS.map(id=>[id,25]));
+    if(!raw){ saveWalletRewards(chain,addr,base); return base; }
+    try{ return {...base, ...JSON.parse(raw)}; }catch{ return base; }
+  }
+  const saveWalletRewards = (chain,addr,obj)=>
+    addr && localStorage.setItem(rewardsKey(chain,addr),JSON.stringify(obj));
+
+  /* ---------- 3.  WALLET / CHAIN STATE ---------- */
+  let currentChain  = 'solana';
+  let currentWallet = '';
+
+  const chainSelect        = document.getElementById('chain-select');
+  const connectBtn         = document.getElementById('connect-wallet');
+  const importBtn          = document.getElementById('import-wallet');
+  const importAddressInput = document.getElementById('import-address');
+  const walletMini         = document.getElementById('wallet-addr-mini');
+
+  function persistSession(){
+    localStorage.setItem(CHAIN_KEY , currentChain );
+    localStorage.setItem(WALLET_KEY, currentWallet||'');
+  }
+
+  function restoreSession(){
+    const savedChain  = localStorage.getItem(CHAIN_KEY );
+    const savedWallet = localStorage.getItem(WALLET_KEY);
+    if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+      currentChain = savedChain;
+      chainSelect.value = savedChain;
+    }
+    if(savedWallet){ currentWallet = savedWallet; walletMini.textContent =
+      `${currentChain.toUpperCase()}: ${
+        currentWallet.length>13
+          ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6)
+          : currentWallet
+      }`;
+    }
+  }
+
+  chainSelect.addEventListener('change',e=>{
+    currentChain = e.target.value;
+    currentWallet = '';
+    walletMini.textContent = '';
+    importAddressInput.style.display='none';
+    persistSession();                   /* ← ADDED */
+    renderRewardsBar(); renderWalletTokenInventory(); renderQuests();
+  });
+
+  connectBtn.addEventListener('click',async()=>{
+    if(currentChain==='solana')             await connectPhantom();
+    else if(['ethereum','bsc'].includes(currentChain)) await connectMetamask(currentChain);
+    else if(currentChain==='cardano')       await connectCardano();
+    else                                     await connectCustom();
+    if(currentWallet) getWalletRewards(currentChain,currentWallet);
+    persistSession();                       /* ← ADDED */
+    renderRewardsBar(); renderWalletTokenInventory(); renderQuests();
+  });
+
+  importBtn.addEventListener('click',()=>{
+    importAddressInput.style.display='inline-block';
+    importAddressInput.value='';
+    importAddressInput.focus();
+  });
+
+  importAddressInput.addEventListener('keydown',e=>{
+    if(e.key!=='Enter' || !importAddressInput.value.trim()) return;
+    currentWallet = importAddressInput.value.trim();
+    walletMini.textContent =
+      `${currentChain.toUpperCase()}: ${
+        currentWallet.length>13
+          ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6)
+          : currentWallet
+      }`;
+    importAddressInput.style.display='none';
+    if(currentWallet) getWalletRewards(currentChain,currentWallet);
+    persistSession();                       /* ← ADDED */
+    renderRewardsBar(); renderWalletTokenInventory(); renderQuests();
+  });
+
+  async function connectPhantom(){
+    if(!window.solana?.isPhantom){alert('Phantom not found.');return;}
+    const r = await window.solana.connect();
+    currentWallet = r.publicKey.toString();
+    walletMini.textContent = `SOL: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+  }
+  async function connectMetamask(chain){
+    if(!window.ethereum){alert('Metamask not found.');return;}
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    currentWallet  = await provider.getSigner().getAddress();
+    walletMini.textContent = `${chain.toUpperCase()}: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+  }
+  async function connectCardano(){
+    const api = window.cardano?.nami || window.cardano?.eternl;
+    if(!api){alert('Install Nami or Eternl.');return;}
+    const walletApi = await api.enable();
+    currentWallet   = toBech32("addr", await walletApi.getChangeAddress());
+    walletMini.textContent = `ADA: ${currentWallet.slice(0,12)}...${currentWallet.slice(-7)}`;
+  }
+  async function connectCustom(){
+    currentWallet = prompt(`Enter your ${currentChain.toUpperCase()} wallet address:`)||'';
+    if(currentWallet){
+      walletMini.textContent =
+        `${currentChain.toUpperCase()}: ${
+          currentWallet.length>13
+            ? currentWallet.slice(0,6)+'...'+currentWallet.slice(-6)
+            : currentWallet
+        }`;
+    }
+  }
+
+  /* ---------- 4.  UI RENDERING ---------- */
+  const rewardsBar = document.getElementById('rewards-bar');
+  const invDiv     = document.getElementById('wallet-token-inventory');
+
+  function renderRewardsBar(){
+    if(!currentWallet){
+      rewardsBar.innerHTML='<span style="opacity:.6;">Connect wallet to view your rewards</span>';
+      return;
+    }
+    const rewards = getWalletRewards(currentChain,currentWallet);
+    rewardsBar.innerHTML = REWARDS.map(r=>{
+      const val = rewards[r.id] || 0;
+      return `
+      <div class="reward-chip">
+        <span class="emoji">${r.emoji}</span>
+        <span class="label">${r.label}</span>
+        <span class="supply-box">${val}</span>
+      </div>`;}).join('');
+  }
+
+  function renderWalletTokenInventory(){
+    if(!currentWallet){invDiv.innerHTML='';return;}
+    const inv = getWalletRewards(currentChain,currentWallet);
+    let html='<b>Your Mixer Track Tokens:</b><br>';
+    for(const t of TRACKS)
+      html+=`<span class="token-balance">${t.label}: <b>${inv[t.id]}</b></span>`;
+    invDiv.innerHTML = html;
+  }
+
+  /* ---------- 5.  QUEST DATA ---------- */
+  const adminPassword   = 'admin123';
+  const CLAIM_KEY_PREFIX  = 'quest_daily_';
+  const VERIFY_KEY_PREFIX = 'quest_verified_';
+  const ONE_DAY_MS = 86_400_000;
+
+  let quests = JSON.parse(localStorage.getItem('all_quests')||'[]');
+  if(!quests.length){
+    quests = [
+      {id:1 ,title:'Bass Drop Challenge',desc:'Upload a bassline NFT to Twitter/X with #MixerBass.',rewards:{bass:1},badge:'guitar',category:'Social',approved:true},
+      {id:2 ,title:'Vocal Power',desc:'Record a short voice memo (10s+) and mint it as an NFT in the mixer.',rewards:{voice:1},badge:'stage',category:'Community',approved:true},
+      {id:3 ,title:'FX Wizard',desc:'Import an FX NFT into the Token Mixer.',rewards:{fx:1},badge:'beats',category:'NFT',approved:true},
+      {id:4 ,title:'Melody Maker',desc:'Create/upload a melody NFT and use it in your DAW mixer.',rewards:{melody:1},badge:'beats',category:'Mixing',approved:true},
+      {id:5 ,title:'Beat Boss',desc:'Collect a unique drum NFT, and use it in any mix.',rewards:{beat:1},badge:'beats',category:'NFT',approved:true},
+      {id:6 ,title:'Wildcard Customizer',desc:'Add a sample or effect as a custom NFT in your mixer.',rewards:{custom:1},badge:'mic',category:'Custom',approved:true},
+      {id:7 ,title:'Social Share',desc:'Share your DAW mix or track screenshot on Twitter with #TokenMixer.',rewards:{bass:1,melody:1},badge:'guitar',category:'Social',approved:true},
+      {id:8 ,title:'Remix Master',desc:'Remix a track and publish it using at least three mixer rows.',rewards:{voice:1,beat:1,fx:1},badge:'stage',category:'Mixing',approved:true},
+      {id:9 ,title:'NFT Collector',desc:'Hold one NFT for each: Beat, FX, and Melody.',rewards:{beat:1,fx:1,melody:1},badge:'beats',category:'NFT',approved:true},
+      {id:10,title:'Full Band Creator',desc:'Fill every mixer row (Voice, Beat, FX, Melody, Bass, Custom) and export your mix.',rewards:{voice:1,beat:1,fx:1,melody:1,bass:1,custom:1},badge:'mic',category:'Mixing',approved:true}
+    ];
+    localStorage.setItem('all_quests',JSON.stringify(quests));
+  }
+  quests.forEach(q=>{if(q.approved===undefined)q.approved=false;});
+
+  /* ---------- 6.  ADMIN / QUEST UI ---------- */
+  let isAdmin = !!localStorage.getItem('is_admin');
+  document.getElementById('is-admin').innerText = isAdmin?'ON':'OFF';
+  if(isAdmin) document.getElementById('add-quest-btn').style.display='';
+
+  function toggleAdmin(){
+    const pw = document.getElementById('admin-password').value;
+    if(!isAdmin && pw===adminPassword){
+      isAdmin=true;localStorage.setItem('is_admin','1');
+    }else if(isAdmin){
+      isAdmin=false;localStorage.removeItem('is_admin');
+    }else{alert('Wrong password.');return;}
+    document.getElementById('is-admin').innerText = isAdmin?'ON':'OFF';
+    document.getElementById('add-quest-btn').style.display = isAdmin?'':'none';
+    renderQuests();
+  }
+
+  const badgeIcons={
+    guitar:{emoji:'🎸',tooltip:'Guitar Badge'},
+    stage :{emoji:'🎤',tooltip:'Stage Badge'},
+    beats :{emoji:'🥁',tooltip:'Beats Badge'},
+    mic   :{emoji:'🎤',tooltip:'Mic Token'}
+  };
+
+  const questContainer = document.getElementById('quest-container');
+  const questCount     = document.getElementById('quest-count');
+  const categorySelect = document.getElementById('category-select');
+
+  function claimKey(id){return `${CLAIM_KEY_PREFIX}${currentChain}_${currentWallet}_${id}`;}
+  function verifyKey(id){return `${VERIFY_KEY_PREFIX}${currentChain}_${currentWallet}_${id}`;}
+
+  function renderQuests(){
+    questCount.innerHTML = `Active Quests: <b>${quests.length}</b>`;
+    questContainer.innerHTML='';
+    const catSet = {};
+    quests.forEach(q=>{catSet[q.category||'Uncategorized']=1;});
+    categorySelect.innerHTML='<option value="">All</option>'+Object.keys(catSet).sort().map(c=>`<option>${c}</option>`).join('');
+    const filter = categorySelect.value;
+    const now=Date.now();
+
+    quests.filter(q=>!filter||q.category===filter).forEach(q=>{
+      const lastClaim=Number(localStorage.getItem(claimKey(q.id))||0);
+      const isClaimed = currentWallet && lastClaim && now-lastClaim<ONE_DAY_MS;
+      const isVerified = !!localStorage.getItem(verifyKey(q.id));
+
+      const rem = ONE_DAY_MS-(now-lastClaim);
+      const remTxt = isClaimed?`<span style="color:#ffd700b5;margin-left:9px;">(Next in ${Math.floor(rem/3.6e6)}h ${Math.floor(rem%3.6e6/6e4)}m)</span>`:'';
+
+      const verifyBtn = `<button onclick="verifyQuest(${q.id})" ${isVerified||isClaimed||!q.approved?'disabled':''}>Verify</button>`;
+      const claimBtn  = `<button onclick="claimQuest(${q.id})" ${(!isVerified||isClaimed||!q.approved)?'disabled':''}>${isClaimed?'Claimed ✅':'Claim'}</button>`;
+
+      const rewardHtml = Object.entries(q.rewards).map(([t,amt])=>`
+        <span class="reward-token"><span class="tok-emoji">${TRACKS.find(x=>x.id===t).label.split(' ')[0]}</span> ${t.charAt(0).toUpperCase()+t.slice(1)} ×${amt}</span>`).join('');
+
+      let adminTools='';
+      if(isAdmin){
+        adminTools=`<div class="admin-controls">
+          <button onclick="editQuest(${q.id})">Edit</button>
+          <button onclick="deleteQuest(${q.id})">Delete</button>
+          ${!q.approved?`<button onclick="approveQuest(${q.id})" style="background:#46ff85;color:#222;">Approve</button>`:''}
+        </div>`;
+      }
+      const approvalNotice = q.approved?'':`<span style="color:#fff200;font-size:.98em;">(Awaiting admin approval)</span>`;
+
+      questContainer.insertAdjacentHTML('beforeend',`
+        <div class="quest${isClaimed?' locked':''}">
+          <span class="icon-badge" title="${badgeIcons[q.badge]?.tooltip||''}">${badgeIcons[q.badge]?.emoji||'🏅'}</span>
+          <div class="quest-content">
+            <span class="quest-category">${q.category||'Uncategorized'}</span>
+            <div class="quest-title">${q.title}</div>
+            <div class="desc">${q.desc}</div>
+            <div class="reward">Rewards: ${rewardHtml}</div>
+            <div style="margin-bottom:7px;">${verifyBtn}${claimBtn}${remTxt}</div>
+            ${approvalNotice}
+            ${isVerified&&!isClaimed&&q.approved?'<span style="color:#aaffc4;font-size:.97em;">Verified! Ready to claim.</span>':''}
+            ${adminTools}
+          </div>
+        </div>`);
+    });
+    renderRewardsBar();renderWalletTokenInventory();
+  }
+
+  /* ---------- 7.  QUEST ACTIONS ---------- */
+  window.verifyQuest=id=>{
+    if(!currentWallet) return alert('Connect wallet first!');
+    if(confirm('Have you completed this quest task? (Demo verification step)')){
+      localStorage.setItem(verifyKey(id),'1');
+      renderQuests(); alert('Quest verified! Now you may claim your rewards.');
+    }
+  };
+
+  window.claimQuest=id=>{
+    if(!currentWallet) return alert('Connect wallet first!');
+    const q = quests.find(x=>x.id===id);
+    if(!q) return;
+    if(!q.approved) return alert('Quest not approved by admin yet.');
+    if(!localStorage.getItem(verifyKey(id))) return alert('Please verify completion first.');
+    const last = Number(localStorage.getItem(claimKey(id))||0);
+    if(Date.now()-last<ONE_DAY_MS){
+      const rem=ONE_DAY_MS-(Date.now()-last);
+      return alert(`You can claim again in ${Math.floor(rem/3.6e6)}h ${Math.floor(rem%3.6e6/6e4)}m`);
+    }
+    const inv = getWalletRewards(currentChain,currentWallet);
+    for(const [t,a] of Object.entries(q.rewards)) inv[t]=(inv[t]||0)+a;
+    saveWalletRewards(currentChain,currentWallet,inv);
+    localStorage.setItem(claimKey(id),Date.now().toString());
+    localStorage.removeItem(verifyKey(id));
+    renderQuests(); alert(`✅ Claimed "${q.title}"! Tokens added to your wallet.`);
+  };
+
+  /* ---------- 8.  ADMIN CRUD (unchanged) ---------- */
+  window.editQuest=id=>{
+    if(!isAdmin) return alert('Admin only!');
+    const q=quests.find(x=>x.id===id);
+    if(!q) return;
+    document.getElementById('edit-id').value=q.id;
+    document.getElementById('new-title').value=q.title;
+    document.getElementById('new-desc').value=q.desc;
+    document.getElementById('new-badge').value=q.badge;
+    document.getElementById('new-category').value=q.category||'';
+    renderAdminRewardTypes(q.rewards);
+    showQuestCreator();
+  };
+  window.deleteQuest=id=>{
+    if(!isAdmin) return alert('Admin only!');
+    if(confirm('Delete this quest?')){
+      quests=quests.filter(q=>q.id!==id);
+      localStorage.setItem('all_quests',JSON.stringify(quests));
+      renderQuests();
+    }
+  };
+  window.approveQuest=id=>{
+    if(!isAdmin) return alert('Admin only!');
+    const q=quests.find(x=>x.id===id);
+    if(q){q.approved=true;localStorage.setItem('all_quests',JSON.stringify(quests));renderQuests();}
+  };
+
+  function showQuestCreator(){ if(!isAdmin)return alert('Admin only'); renderAdminRewardTypes(); document.getElementById('quest-creator-panel').style.display='block'; }
+  function hideQuestCreator(){ document.getElementById('quest-creator-panel').style.display='none'; document.getElementById('edit-id').value=''; document.getElementById('quest-create-form').reset(); }
+
+  function renderAdminRewardTypes(init={}){
+    let html='<b>Reward Mixer Tokens:</b><br>';
+    TRACKS.forEach(t=>{
+      html+=`<div class="reward-type-row"><span>${t.label}</span>
+        <input id="reward-type-${t.id}" type="number" min="0" value="${init[t.id]||0}"></div>`;
+    });
+    document.getElementById('admin-reward-types').innerHTML=html;
+  }
+
+  document.getElementById('quest-create-form').onsubmit=e=>{
+    e.preventDefault();
+    if(!isAdmin) return alert('Admin only!');
+    const editId=document.getElementById('edit-id').value;
+    const title=document.getElementById('new-title').value.trim();
+    const desc =document.getElementById('new-desc').value.trim();
+    const badge=document.getElementById('new-badge').value;
+    const category=document.getElementById('new-category').value.trim();
+    const rewards={};
+    TRACKS.forEach(t=>{
+      const v=parseInt(document.getElementById(`reward-type-${t.id}`).value)||0;
+      if(v>0) rewards[t.id]=v;
+    });
+    if(!title||!desc||!badge) return alert('Fill in all fields.');
+    if(editId){
+      const q=quests.find(x=>x.id==editId); if(!q)return;
+      Object.assign(q,{title,desc,rewards,badge,category,approved:false});
+    }else{
+      const newId=quests.length?Math.max(...quests.map(q=>q.id))+1:1;
+      quests.push({id:newId,title,desc,rewards,badge,category,approved:false});
+    }
+    localStorage.setItem('all_quests',JSON.stringify(quests));
+    hideQuestCreator(); renderQuests();
+  };
+
+  /* ---------- 9.  UTILS (reset/export/import) ---------- */
+  function resetClaims(){
+    if(!confirm('Clear all quest claims, verifications, and mixer tokens for this user?')) return;
+    Object.keys(localStorage).forEach(k=>{
+      if(k.startsWith(CLAIM_KEY_PREFIX)||k.startsWith(VERIFY_KEY_PREFIX)||k.startsWith('mixer_tokens_'))
+        localStorage.removeItem(k);
+    });
+    renderQuests();renderWalletTokenInventory();renderRewardsBar();
+  }
+
+  function exportQuests(){
+    const blob=new Blob([JSON.stringify(quests,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='quests.json';a.click();
+    URL.revokeObjectURL(url);
+  }
+  function importQuestsPrompt(){
+    const inp=document.createElement('input');inp.type='file';inp.accept='application/json';
+    inp.onchange=()=>{const file=inp.files[0]; if(!file)return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        try{const data=JSON.parse(e.target.result);
+          if(Array.isArray(data)){quests=data;localStorage.setItem('all_quests',JSON.stringify(quests));renderQuests();}
+          else alert('Invalid file.');}
+        catch{alert('Invalid file.');}
+      };
+      reader.readAsText(file);
+    };
+    inp.click();
+  }
+
+  /* ---------- 10.  INITIALISE ---------- */
+  restoreSession();          // ← load saved chain & wallet
+  renderRewardsBar();
+  renderWalletTokenInventory();
+  renderQuests();
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {"internalType": "address", "name": "_pool", "type": "address"},
+        {"internalType": "address", "name": "_platform", "type": "address"},
+        {"internalType": "uint96", "name": "_poolFeeBps", "type": "uint96"},
+        {"internalType": "uint96", "name": "_platformFeeBps", "type": "uint96"}
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {"internalType": "address", "name": "nft", "type": "address"},
+        {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
+        {"internalType": "uint256", "name": "price", "type": "uint256"},
+        {"internalType": "bool", "name": "isERC20", "type": "bool"},
+        {"internalType": "address", "name": "paymentToken", "type": "address"}
+      ],
+      "name": "listItem",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {"internalType": "address", "name": "nft", "type": "address"},
+        {"internalType": "uint256", "name": "tokenId", "type": "uint256"}
+      ],
+      "name": "buyItem",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ]
+}

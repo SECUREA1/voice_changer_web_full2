@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🖼 NFT Viewer – ChainES Labs</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module" src="{{ url_for('static', filename='libs/model-viewer.min.js') }}"></script>
+  <style>
+    :root {
+      --gold: #ffd700;
+      --red: #b30000;
+      --dark: #181818;
+      --brand-shadow: 0 4px 28px #ffd7001c, 0 1px 12px #ffd70011;
+    }
+    body { background: #090909; color: var(--gold); font-family: 'Segoe UI',sans-serif; margin:0; padding:0; min-height:100vh;}
+    a { color: var(--gold);}
+    h2 {text-align:center; margin-top:30px; font-size:2em;}
+    .header-row { display: flex; align-items: center; justify-content: space-between;
+      padding: 23px 37px 13px 27px;
+      background: linear-gradient(90deg, #181818 84%, #ffd70008 100%);
+      border-radius: 0 0 30px 30px; box-shadow: 0 5px 36px #b3000014;
+      min-height: 48px; position: sticky; top:0; z-index: 90;}
+    .header-row h1 { font-size: 2em; font-weight: 900; color: var(--gold);
+      text-shadow: 0 2px 18px #b3000035, 0 0 32px #ffd70045; margin: 0; letter-spacing: 0.01em;}
+    .wallet-bar-top { display: flex; align-items: center; gap: 1.15em; background: rgba(30,30,30,0.95);
+      border-radius: 12px; border: 2px solid #ffd70070; padding: 8px 23px 8px 18px; box-shadow: var(--brand-shadow); font-size: 1.10em; flex-wrap: wrap; }
+    .wallet-bar-top select, .wallet-bar-top button, .wallet-bar-top input[type="text"] {
+      padding: 6px 12px; font-size: 1em; border-radius: 7px; border: 1.2px solid #ffd70060;
+      background: #181818; color: #ffd700; outline: none;}
+    .wallet-bar-top button { background: var(--red); color: var(--gold); font-weight:600; border:1.4px solid #ffd700; cursor:pointer;}
+    .wallet-bar-top button:hover { background: #ff0000; }
+    .wallet-bar-top input[type="text"] {width:170px;display:none;}
+    .wallet-addr-mini { font-weight:600; background: #260101; border-radius: 6px; border: 1px solid #ffd700; padding: 4px 13px; font-size:1.04em;}
+    @media (max-width:800px) {
+      .header-row {flex-direction: column; align-items: stretch; padding:12px 4vw 13px 4vw;}
+      .wallet-bar-top {margin-top: 9px;}
+    }
+    .rewards-bar-outer{width:100%;display:flex;justify-content:center;margin:0 0 28px 0;position:relative;z-index:10;}
+    .rewards-bar{margin:0 auto 1.8em auto;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0.85em;justify-content:center;align-items:flex-end;max-width:99vw;background:linear-gradient(90deg,#2b0000 84%, #ffd70013 100%);border-radius:18px;box-shadow:0 2px 22px #ffd70021, 0 0 40px #b3000011;border:2.1px solid #ffd700cc;padding:0.62em 0.8em 0.38em 0.8em;scrollbar-width:none;-ms-overflow-style:none;}
+    .rewards-bar::-webkit-scrollbar{display:none;}
+    .reward-chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:54px;max-width:90px;margin:0 0.04em;padding:0.13em 0.12em 0.26em 0.13em;background:none;border:none;font-size:1em;cursor:pointer;position:relative;border-radius:13px;box-shadow:0 2px 14px #ffd70017;transition:transform .14s, box-shadow .14s;border:1.5px solid transparent;}
+    .reward-chip:hover,.reward-chip:focus{transform:scale(1.10);box-shadow:0 4px 36px #ffd700e0,0 2px 12px #b3000050;z-index:2;border-color:#ffd700;}
+    .reward-chip .emoji{font-size:1.6em;margin-bottom:0.02em;filter:drop-shadow(0 0 8px #ffd70063);animation:pulseGlow 1.5s infinite alternate;text-shadow:0 0 12px #ffd700a8;}
+    .reward-chip .label{font-size:1em;font-weight:700;color:#ffd700;margin:0.09em 0 0.11em 0;white-space:nowrap;text-align:center;text-shadow:0 1px 7px #b3000032;}
+    .reward-chip .supply-box{background:linear-gradient(90deg, #fffbe6 60%, #ffd700 100%);color:#b30000;border-radius:9px;box-shadow:0 2px 12px #ffd70060,0 0 8px #b3000023;font-weight:bold;padding:0.21em 0.92em 0.17em 0.92em;font-size:1.05em;margin-top:0.05em;min-width:34px;text-align:center;border:2px solid #ffd70099;animation:supplyGlow 2.2s infinite alternate;}
+    @keyframes pulseGlow{from{filter:drop-shadow(0 0 8px #ffd70090);}to{filter:drop-shadow(0 0 20px #ffd700ef);}}
+    @keyframes supplyGlow{from{box-shadow:0 2px 12px #ffd70041;}to{box-shadow:0 0 20px #ffd700ee,0 2px 12px #ffd70030;}}
+    @media (max-width: 700px) {
+      .rewards-bar { gap: 0.44em; padding: 0.5em 0.14em;}
+      .reward-chip { flex-direction: column; min-width: 60px; min-height: 66px; font-size: 1em; padding: 0.26em 0.22em 0.23em 0.32em; gap: 0.08em; justify-content: center; align-items: center;}
+      .reward-chip .emoji { font-size: 1.18em;}
+      .reward-chip .label { font-size: 0.99em;}
+    }
+    .nft-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; margin: 38px auto 24px auto;}
+    .nft-card {
+      background: rgba(30,30,30,0.98); border: 3px solid #ffd700; border-radius: 22px;
+      box-shadow: 0 0 0 3px #ffec97cc, 0 0 16px 3px #ffd70044, 0 8px 30px #29050533;
+      padding: 18px 13px 16px 13px; width: 340px; text-align: center; min-height:340px;
+      display: flex; flex-direction: column; align-items: center; gap:9px; margin-bottom:6px;
+      background-image: linear-gradient(135deg, #181818 82%, #ffd70022 100%);
+      transition: box-shadow 0.18s;}
+    .nft-card:hover { box-shadow:0 0 0 4px #ffd700, 0 0 20px 4px #ffec9770, 0 8px 30px #29050533;}
+    .golden-window { position: relative; background: linear-gradient(120deg, #fffbe6 0%, #ffe066 60%, #ffd700 100%);
+      border: 3px solid #ffd700; border-radius: 15px; width: 98%; min-height: 170px; display: flex; flex-direction: column; align-items: center; margin: 0 auto 8px auto; padding: 10px 7px 7px 8px;}
+    .golden-window model-viewer, .golden-window video, .golden-window img, .golden-window audio { width: 99.5%; margin-bottom:7px; border-radius: 9px; background: #181818; display: block; box-shadow: 0 1px 14px #ffd70011;}
+    .golden-window audio { margin-bottom:0;}
+    .nft-card h4 {margin:8px 0 7px 0;font-size:1.13em;}
+    .nft-card .price-chain {margin:4px 0 5px 0; font-size:0.97em;}
+    .nft-card .btn-row {display:flex;gap:7px;justify-content:center;margin-top:6px;}
+    .nft-card .btn-row button {padding:6px 9px;}
+    /* Dapp Footer Navigation */
+    .dapp-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.3em 2.1em;
+      margin: 2.4em auto 1.6em auto;
+      max-width: 980px;
+      background: rgba(30,0,0,0.07);
+      border-radius: 22px;
+      padding: 2em 1.5em 1em 1.5em;
+      box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+    }
+    .dapp-card {
+      background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border: 2.1px solid #ffd70088;
+      border-radius: 14px;
+      box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+      text-align: center;
+      padding: 1.3em 1.1em 1.2em 1.1em;
+      margin-bottom: 0.2em;
+      transition: box-shadow .17s, transform .16s;
+    }
+    .dapp-card:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+      border-color: #ffd700ee;
+      background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon {
+      font-size: 2.05em; display:block; margin-bottom:0.18em; filter: drop-shadow(0 0 9px #ffd70090);
+    }
+    .launch-button {
+      margin-top: 1.0em; display:inline-block; padding: 0.65em 1.65em;
+      border-radius: 8px; background: #b30000; color: var(--gold);
+      border: 1.7px solid #ffd700ab; font-weight: bold; font-size: 1em;
+      text-decoration: none; transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+      box-shadow: 0 1.5px 8px #ffd70024;
+    }
+    .launch-button:hover, .launch-button:focus { background: #ffd700; color: #b30000; box-shadow: 0 0 16px #ffd70088; }
+    footer { color:#ffcc70; font-size:1em; text-align:center; margin:2.2em 0 0.2em 0;}
+    @media (max-width: 950px) {.rewards-bar { padding: 0.8em 0.7em;}}
+    @media (max-width: 700px) {.dapp-list {grid-template-columns: 1fr 1fr;}}
+    @media (max-width: 480px) {.dapp-list {grid-template-columns: 1fr;}}
+    @media (max-width: 600px) {
+      .nft-card { width:99vw; min-width:unset; }
+      .nft-grid { gap:11px;}
+      .golden-window { min-height: 115px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <h1>🖼 NFT Viewer</h1>
+    <div class="wallet-bar-top">
+      <label for="chain-select">Chain:</label>
+      <select id="chain-select">
+        <option value="solana">Solana (Phantom)</option>
+        <option value="ethereum">Ethereum (MetaMask)</option>
+        <option value="bsc">BNB Chain (MetaMask)</option>
+        <option value="cardano">Cardano (Nami/Eternl)</option>
+        <option value="zorg">ZORG</option>
+        <option value="rednode">REDNODE</option>
+      </select>
+      <button id="connect-wallet">🔗 Connect Wallet</button>
+      <button id="import-wallet">🔑 Import Wallet</button>
+      <input id="import-address" type="text" placeholder="Paste address and hit Enter"/>
+      <span id="wallet-addr-mini" class="wallet-addr-mini"></span>
+    </div>
+  </div>
+
+  <!-- Rewards Bar -->
+  <div class="rewards-bar-outer"><div class="rewards-bar" id="rewards-bar"></div></div>
+
+  <h2>Multi-Chain NFT Viewer</h2>
+  <div class="nft-grid" id="nft-grid"></div>
+
+  <footer>
+    <div style="max-width:900px; margin:2.2em auto 0 auto;">
+      <section class="dapp-list" id="dapps">
+        <article class="dapp-card">
+          <span class="dapp-icon">🎤</span>
+          <h2>Voice Changer</h2>
+          <p>Real-time audio manipulation</p>
+          <a class="launch-button" href="/voice-changer">Launch</a>
+        </article>
+        <article class="dapp-card">
+          <span class="dapp-icon">📋</span>
+          <h2>Quest Board</h2>
+          <p>Complete tasks, earn tokens</p>
+          <a class="launch-button" href="/quest-board">Launch</a>
+        </article>
+        <article class="dapp-card">
+          <span class="dapp-icon">🎹</span>
+          <h2>NFT Mixer</h2>
+          <p>Blend tokens and NFTs into new forms</p>
+          <a class="launch-button" href="/token-mixer">Launch</a>
+        </article>
+        <article class="dapp-card">
+          <span class="dapp-icon">🖼️</span>
+          <h2>NFT Viewer</h2>
+          <p>Display owned NFTs</p>
+          <a class="launch-button" href="/nft-viewer">Launch</a>
+        </article>
+        <article class="dapp-card">
+          <span class="dapp-icon">🎮</span>
+          <h2>Game Portal</h2>
+          <p>Play blockchain mini-games</p>
+          <a class="launch-button" href="/game">Launch</a>
+        </article>
+        <article class="dapp-card">
+          <span class="dapp-icon">🛒</span>
+          <h2>Marketplace</h2>
+          <p>Buy/sell items with tokens</p>
+          <a class="launch-button" href="/marketplace">Launch</a>
+        </article>
+      </section>
+      <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+    </div>
+  </footer>
+
+  <!-- Wallet/Chain JS deps -->
+  <script src="{{ url_for('static', filename='libs/solana-web3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/ethers.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/cardano-connector.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bech32.js') }}"></script>
+  <script src="{{ url_for('static', filename='wallet.js') }}"></script>
+  <script>
+    // --- Reward Definitions ---
+    const TRACK_IDS = ['voice','beat','fx','melody','bass','custom'];
+    const REWARDS = [
+      {id:'voice',  emoji:'🎤', label:'Voice'},
+      {id:'beat',   emoji:'🥁', label:'Beat'},
+      {id:'fx',     emoji:'✨', label:'FX'},
+      {id:'melody', emoji:'🎶', label:'Melody'},
+      {id:'bass',   emoji:'🎸', label:'Bass'},
+      {id:'custom', emoji:'🧩', label:'Custom'}
+    ];
+
+    // --- Synced Rewards Storage (25 default per wallet/chain) ---
+    const CHAIN_KEY  = 'mixer_current_chain';
+    const WALLET_KEY = 'mixer_current_wallet';
+
+    function rewardsKey(chain, addr) { return `mixer_tokens_${chain}_${addr}`; }
+    function getWalletRewards(chain, addr) {
+      if (!addr) return {};
+      const raw = localStorage.getItem(rewardsKey(chain, addr));
+      const base = Object.fromEntries(TRACK_IDS.map(id => [id, 25]));
+      if (!raw) { saveWalletRewards(chain, addr, base); return base; }
+      try { return { ...base, ...JSON.parse(raw) }; } catch { return base; }
+    }
+    function saveWalletRewards(chain, addr, rewards) {
+      if (addr) localStorage.setItem(rewardsKey(chain, addr), JSON.stringify(rewards));
+    }
+    function persistSession(){
+      localStorage.setItem(CHAIN_KEY , currentChain );
+      localStorage.setItem(WALLET_KEY, currentWallet||'');
+    }
+    function restoreSession(){
+      const savedChain  = localStorage.getItem(CHAIN_KEY );
+      const savedWallet = localStorage.getItem(WALLET_KEY);
+      if(savedChain && chainSelect.querySelector(`option[value="${savedChain}"]`)){
+        currentChain = savedChain;
+        chainSelect.value = savedChain;
+      }
+      if(savedWallet){
+        currentWallet = savedWallet;
+        walletMini.textContent = `${currentChain.toUpperCase()}: ${savedWallet.length>13 ? savedWallet.slice(0,6)+'...'+savedWallet.slice(-6) : savedWallet}`;
+      }
+    }
+
+    // --- Wallet & Chain Logic (Unified) ---
+    let currentChain = "solana";
+    let currentWallet = "";
+    const chainSelect = document.getElementById("chain-select");
+    const connectBtn = document.getElementById("connect-wallet");
+    const importBtn = document.getElementById("import-wallet");
+    const importAddressInput = document.getElementById("import-address");
+    const walletMini = document.getElementById("wallet-addr-mini");
+
+    chainSelect.addEventListener("change", e => {
+      currentChain = e.target.value; currentWallet = ""; walletMini.textContent = ""; importAddressInput.style.display = "none";
+      persistSession();
+      renderRewardsBar(); renderNFTs([]);
+    });
+
+    connectBtn.addEventListener("click", async () => {
+      if (currentChain === "solana") await connectPhantom();
+      else if (["ethereum", "bsc"].includes(currentChain)) await connectMetamask(currentChain);
+      else if (currentChain === "cardano") await connectCardano();
+      else await connectCustom();
+      if(currentWallet) getWalletRewards(currentChain, currentWallet);
+      persistSession();
+      renderRewardsBar(); loadNFTs(currentWallet, currentChain);
+    });
+    importBtn.addEventListener("click", ()=>{
+      importAddressInput.style.display = "inline-block"; importAddressInput.value = ""; importAddressInput.focus();
+    });
+    importAddressInput.addEventListener("keydown", e=>{
+      if(e.key==="Enter" && importAddressInput.value.trim()) {
+        currentWallet = importAddressInput.value.trim();
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` + (currentWallet.length>13 ? currentWallet.slice(0,6)+"..."+currentWallet.slice(-6) : currentWallet);
+        importAddressInput.style.display = "none";
+        if(currentWallet) getWalletRewards(currentChain, currentWallet);
+        persistSession();
+        renderRewardsBar(); loadNFTs(currentWallet, currentChain);
+      }
+    });
+    async function connectPhantom() {
+      if (window.solana?.isPhantom) {
+        const resp = await window.solana.connect();
+        currentWallet = resp.publicKey.toString();
+        walletMini.textContent = `SOL: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+      } else { alert("Phantom not found."); }
+    }
+    async function connectMetamask(chain) {
+      if (!window.ethereum) return alert("Metamask not found.");
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      currentWallet = await signer.getAddress();
+      walletMini.textContent = `${chain.toUpperCase()}: ${currentWallet.slice(0,6)}...${currentWallet.slice(-6)}`;
+    }
+    async function connectCardano() {
+      const api = window.cardano?.nami || window.cardano?.eternl;
+      if (!api) return alert("Install Nami or Eternl.");
+      const walletApi = await api.enable();
+      currentWallet = toBech32("addr", await walletApi.getChangeAddress());
+      walletMini.textContent = `ADA: ${currentWallet.slice(0,12)}...${currentWallet.slice(-7)}`;
+    }
+    async function connectCustom() {
+      currentWallet = prompt(`Enter your ${currentChain.toUpperCase()} wallet address:`);
+      if(currentWallet) {
+        walletMini.textContent = `${currentChain.toUpperCase()}: ` + (currentWallet.length>13 ? currentWallet.slice(0,6)+"..."+currentWallet.slice(-6) : currentWallet);
+      }
+    }
+
+    // --- Render Rewards Bar ---
+    function renderRewardsBar() {
+      const bar = document.getElementById('rewards-bar');
+      if (!currentWallet) {
+        bar.innerHTML = `<span style="opacity:0.6;">Connect wallet to view your rewards</span>`;
+        return;
+      }
+      const rewards = getWalletRewards(currentChain, currentWallet);
+      bar.innerHTML = REWARDS.map(r => {
+        const val = rewards[r.id] || 0;
+        return `<div class="reward-chip">
+          <span class="emoji">${r.emoji}</span>
+          <span class="label">${r.label}</span>
+          <span class="supply-box">${val}</span>
+        </div>`;
+      }).join("");
+    }
+
+    // --- NFT Loader: (API for main chains, demo for zorg/rednode) ---
+    const SESSION_NFT_KEY = 'session_nfts';
+    function loadSessionNFTs(){
+      try{ return JSON.parse(localStorage.getItem(SESSION_NFT_KEY)) || []; }catch{return [];}
+    }
+    const GAME_NFT_KEY = `game_nfts_${window.APP_USER || 'guest'}`;
+    const LEGENDARY_NFT_KEY = `legendary_game_nfts_${window.APP_USER || 'guest'}`;
+    function loadGameNFTs(){
+      try{ return JSON.parse(localStorage.getItem(GAME_NFT_KEY)) || []; }catch{return [];}
+    }
+    function loadLegendaryNFTs(){
+      try{ return JSON.parse(localStorage.getItem(LEGENDARY_NFT_KEY)) || []; }catch{return [];}
+    }
+    let sessionNFTs = loadSessionNFTs();
+    let gameNFTs = loadGameNFTs();
+    let gameLegendary = loadLegendaryNFTs();
+    let marketplaceNFTs = [];
+    let walletNFTs = [];
+    const nftGrid = document.getElementById("nft-grid");
+    function renderNFTs(nfts) {
+      nftGrid.innerHTML = "";
+      if (!nfts.length) return;
+      nfts.forEach(nft => {
+        const card = document.createElement("div");
+        card.className = "nft-card";
+        let layers = `<div class="golden-window">`;
+        if(nft.video) layers += `<video src="${nft.video}" autoplay muted loop controls playsinline></video>`;
+        if(nft.glb) layers += `<model-viewer src="${nft.glb}" auto-rotate camera-controls style="height:180px;"></model-viewer>`;
+        if(nft.audio) layers += `<audio src="${nft.audio}" controls></audio>`;
+        if(nft.image && !nft.image.endsWith(".glb")) layers += `<img src="${nft.image}" alt="${nft.name}" />`;
+        layers += `</div>`;
+        const price = nft.price ? `<span>💲 ${nft.price}</span>` : "";
+        const chain = `<span>🪙 ${nft.chain?.toUpperCase()}</span>`;
+        const col = nft.collection ? `<br><small>${nft.collection}</small>` : "";
+        const btns = [];
+        if(nft.image && !nft.image.endsWith(".glb")) btns.push(`<a href="${nft.image}" download><button>⬇ Image</button></a>`);
+        if(nft.video) btns.push(`<a href="${nft.video}" download><button>⬇ Video</button></a>`);
+        if(nft.audio) btns.push(`<a href="${nft.audio}" download><button>⬇ Audio</button></a>`);
+        if(nft.glb) btns.push(`<a href="${nft.glb}" download><button>⬇ 3D</button></a>`);
+        if(nft.url) btns.push(`<a href="${nft.url}" target="_blank"><button>Marketplace</button></a>`);
+        btns.push(`<button onclick="transferNFT('${nft.token_id}')">Transfer</button>`);
+        card.innerHTML = `
+          <h4>${nft.name}</h4>
+          ${layers}
+          <div class="price-chain">${price} ${chain} ${col}</div>
+          <div class="btn-row">${btns.join("")}</div>
+        `;
+        nftGrid.appendChild(card);
+      });
+    }
+window.transferNFT = function(tokenId) {
+  alert("Transfer NFT logic placeholder.\nToken ID: " + tokenId + "\nAdd your Web3 or Solana/Cardano SDK code here.");
+};
+
+    async function fetchMarketplaceNFTs(){
+      try{
+        const resp = await fetch('/marketplace/api/items');
+        const data = await resp.json();
+        if(Array.isArray(data)){
+          marketplaceNFTs = data.map(item=>{
+            const url = item.file_url || item.media_url;
+            return {
+              name: item.title,
+              image: item.type==='image'?url:'',
+              video: item.type==='video'?url:'',
+              audio: item.type==='audio'?url:'',
+              glb:   item.type==='model'?url:'',
+              chain: item.chain
+            };
+          });
+          sessionNFTs = sessionNFTs.filter(s=>!marketplaceNFTs.some(m=>
+            m.image===s.thumb && m.video===s.video && m.audio===s.audio && m.glb===s.glb));
+          localStorage.setItem(SESSION_NFT_KEY, JSON.stringify(sessionNFTs));
+        }
+        renderAll();
+      }catch(err){ console.error('marketplace items load failed', err); }
+    }
+
+    function sessionNFTView(){
+      return sessionNFTs.map(n=>({
+        name:n.name,
+        image:n.thumb,
+        video:n.video,
+        audio:n.audio,
+        glb:n.glb,
+        chain:'uploaded'
+      }));
+    }
+
+    function gameNFTView(){
+      const items = [];
+      gameNFTs.forEach(n=>{
+        for(let i=0;i<(n.count||1);i++){
+          items.push({name:n.label,image:n.img,chain:'game',token_id:n.id});
+        }
+      });
+      gameLegendary.forEach(n=>{
+        items.push({name:n.label,image:n.img,chain:'game',token_id:n.id});
+      });
+      return items;
+    }
+
+    function renderAll(){
+      renderNFTs(sessionNFTView().concat(gameNFTView(), marketplaceNFTs, walletNFTs));
+    }
+    async function loadNFTs(address, chain) {
+      nftGrid.innerHTML = `<p style="margin-top:45px;">Loading from ${chain.toUpperCase()}...</p>`;
+      try {
+        let nfts = [];
+        if (chain === "solana") {
+          const res = await fetch(`https://api-mainnet.magiceden.io/v2/wallets/${address}/tokens?offset=0&limit=24`);
+          nfts = await res.json();
+        } else if (["ethereum", "bsc"].includes(chain)) {
+          let url, headers = {};
+          if (chain === "ethereum") {
+            url = `https://api.opensea.io/api/v1/assets?owner=${address}&order_direction=desc&limit=24`;
+          } else {
+            url = `https://deep-index.moralis.io/api/v2/${address}/nft?chain=bsc&format=decimal`;
+            headers = { "X-API-Key": "YOUR_MORALIS_API_KEY" };
+          }
+          const res = await fetch(url, {headers});
+          const data = await res.json();
+          nfts = data.assets || data.result || [];
+        } else if (chain === "cardano") {
+          nfts = [{ name: "Cardano NFT", image: "https://via.placeholder.com/300", media: [] }];
+        } else if (["zorg","rednode"].includes(chain)) {
+          nfts = [
+            { name: chain.toUpperCase()+" NFT", image: "https://placehold.co/300x300/180/ffd700.png?text=" + chain.toUpperCase(), video: "", audio: "", glb: "", chain: chain }
+          ];
+        }
+        walletNFTs = normalizeNFTs(nfts, chain);
+        renderAll();
+      } catch (err) {
+        nftGrid.innerHTML = "<p>Error loading NFTs.</p>";
+      }
+    }
+    function normalizeNFTs(nfts, chain) {
+      return nfts.map(nft => {
+        let image = nft.image || nft.metadata?.image || nft.animation_url || nft.image_url || "";
+        let video = nft.animation_url && nft.animation_url.endsWith(".mp4") ? nft.animation_url : nft.video || "";
+        let audio = nft.animation_url && nft.animation_url.endsWith(".mp3") ? nft.animation_url : nft.audio || "";
+        let glb = image.endsWith(".glb") ? image : (nft.glb || "");
+        if (nft.media && Array.isArray(nft.media)) {
+          nft.media.forEach(m=>{
+            if (m.uri.endsWith(".mp4")) video=m.uri;
+            else if (m.uri.endsWith(".mp3")) audio=m.uri;
+            else if (m.uri.endsWith(".glb")) glb=m.uri;
+          });
+        }
+        if (nft.animation_url) {
+          if (nft.animation_url.endsWith(".mp4")) video=nft.animation_url;
+          else if (nft.animation_url.endsWith(".mp3")) audio=nft.animation_url;
+          else if (nft.animation_url.endsWith(".glb")) glb=nft.animation_url;
+        }
+        return {
+          name: nft.name || nft.metadata?.name || "NFT",
+          image: resolveIpfs(image),
+          video: resolveIpfs(video),
+          audio: resolveIpfs(audio),
+          glb: resolveIpfs(glb),
+          chain: chain,
+          collection: nft.collection?.name || nft.collectionName || "Uncategorized",
+          price: nft.price || nft.listingPrice || nft.last_sale?.total_price || "",
+          url: nft.permalink || nft.external_url || "",
+          token_id: nft.token_id || nft.id || "",
+        };
+      });
+    }
+    function resolveIpfs(url) {
+      return url?.startsWith("ipfs://")
+        ? url.replace("ipfs://", "https://ipfs.io/ipfs/")
+        : url;
+    }
+
+    // --- INITIALIZE ---
+    restoreSession();
+    renderRewardsBar();
+    renderAll();
+    fetchMarketplaceNFTs().then(renderAll);
+    setInterval(fetchMarketplaceNFTs, 15000);
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

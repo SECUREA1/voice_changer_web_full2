@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>OmConsole Voice Minting Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='wrench.svg') }}">
+  <style>
+    body { margin:0; font-family:'Segoe UI',sans-serif; background:linear-gradient(to right,#7c0a02,#260101); color:#ffd700; text-align:center; }
+    .container { max-width:700px; margin:3rem auto; padding:2rem; background:rgba(255,215,0,0.03); border-radius:16px; border:2px solid #ffd700;}
+    h1 { font-size:2.5rem; }
+    .button-gate, .main-btn {
+      padding:1rem 2rem; font-size:1.1rem; border-radius:10px; border:2px solid #ffd700; color:#ffd700;
+      background:#b30000; cursor:pointer; margin:1rem 0; transition:background 0.2s;
+    }
+    .button-gate:hover, .main-btn:hover { background:#ff0000; }
+    .mint-panel { display:none; margin-top:2rem;}
+    #audioPlayback { display:none;}
+    #customBar { width:100%; max-width:550px; height:70px; background:#111; border-radius:8px; border:1px solid #ffd700; margin-top:1.2rem; display:block; }
+    .crop-controls { margin:1.2rem 0;}
+    #mint-ready-popup { margin:2rem 0 0 0; font-size:1.2rem;}
+    #mint-btn {display:none;}
+    .field { margin:0.6rem 0;}
+    input[type="number"], input[type="text"], select { width:75%; }
+    .form-label { font-weight:bold; margin-bottom:0.2rem;}
+    footer {margin-top:3rem; font-size:1rem; color:#ffcc70;}
+    @keyframes flash { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+    #red-dot { animation: flash 1s infinite; }
+
+    /* Landing logo animation */
+    #logo-spinner {
+      width:150px; height:150px; margin:2rem auto;
+      border-radius:50%;
+      background:linear-gradient(to bottom,#000 50%,#b30000 50%);
+      border:3px solid #ffd700;
+      display:flex; justify-content:center; align-items:center;
+      position:relative; overflow:hidden;
+      opacity:0; animation: spinFadeIn 1.5s forwards;
+    }
+    #logo-spinner svg {
+      width:80px; height:80px; position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      fill:#ff0000; filter:drop-shadow(0 0 6px #ffd700);
+    }
+    #logo-spinner path { stroke:none; }
+    @keyframes spinFadeIn {
+      from { transform:rotate(-360deg) scale(0); opacity:0; }
+      to   { transform:rotate(0deg) scale(1); opacity:1; }
+    }
+    /* Dapp Footer Navigation */
+    .dapp-list {
+      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.3em 2.1em;
+      margin: 2.4em auto 1.6em auto;
+      max-width: 980px;
+      background: rgba(30,0,0,0.07);
+      border-radius: 22px;
+      padding: 2em 1.5em 1em 1.5em;
+      box-shadow: 0 4px 30px #ffd70013, 0 1px 10px #b3000022;
+    }
+    .dapp-card {
+      background: linear-gradient(110deg,#1a0507 76%,#ffd7001a 100%);
+      border: 2.1px solid #ffd70088;
+      border-radius: 14px;
+      box-shadow: 0 2px 18px #ffd70017, 0 1px 9px #ffd70013;
+      text-align: center;
+      padding: 1.3em 1.1em 1.2em 1.1em;
+      margin-bottom: 0.2em;
+      transition: box-shadow .17s, transform .16s;
+    }
+    .dapp-card:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 6px 28px #ffd70070, 0 1px 20px #b3000020;
+      border-color: #ffd700ee;
+      background: linear-gradient(102deg,#250a14 80%,#ffd7003b 100%);
+    }
+    .dapp-icon {
+      font-size: 2.05em;
+      display: block;
+      margin-bottom: 0.18em;
+      filter: drop-shadow(0 0 9px #ffd70090);
+    }
+    .launch-button {
+      margin-top: 1.0em;
+      display: inline-block;
+      padding: 0.65em 1.65em;
+      border-radius: 8px;
+      background: #b30000;
+      color: #ffd700;
+      border: 1.7px solid #ffd700ab;
+      font-weight: bold;
+      font-size: 1em;
+      text-decoration: none;
+      transition: background 0.17s, color 0.14s, box-shadow 0.18s;
+      box-shadow: 0 1.5px 8px #ffd70024;
+    }
+    .launch-button:hover, .launch-button:focus {
+      background: #ffd700;
+      color: #b30000;
+      box-shadow: 0 0 16px #ffd70088;
+    }
+    @media (max-width: 780px) {
+      .dapp-list { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    }
+    @media (max-width: 530px) {
+      .dapp-list { grid-template-columns: 1fr; }
+      .dapp-card { margin-bottom: 1.4em; }
+    }
+    footer {
+      text-align: center;
+      color: #ffcc70;
+      font-size: 1em;
+      margin: 1.2em 0 0.2em 0;
+      letter-spacing: 0.03em;
+    }
+    .utility-corner {
+      position: fixed; bottom: 25px; right: 25px;
+      background: #b30000; color: #ffd700;
+      padding: 0.8rem 1.2rem; font-size: 1rem;
+      border-radius: 10px; border: 2px solid #ffd700;
+      cursor: pointer; z-index: 1000; transition:background 0.3s;
+      display:none;
+    }
+    .utility-corner:hover { background: #ff0000; }
+  </style>
+</head>
+<body>
+  <div id="logo-spinner">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+    </svg>
+  </div>
+  <div class="container">
+    <h1>🎤 Mint Your Mic to Unlock the Experience</h1>
+    <button class="button-gate" id="mint-mic">🔓 Mint Mic Token</button>
+    <div class="mint-panel" id="mic-tools">
+      <h2>🎙️ Record Your Voice</h2>
+      <div style="margin-bottom:1rem;">
+        <span id="red-dot" style="height:12px;width:12px;background:red;border-radius:50%;display:inline-block;visibility:hidden;"></span>
+        <span id="record-timer" style="margin-left:0.6rem; font-weight:bold;">00:00</span>
+      </div>
+      <div>
+        <button class="main-btn" onclick="startRecording()">🔴 Start Recording</button>
+        <button class="main-btn" onclick="stopRecording()">⏹️ Stop</button>
+      </div>
+      <audio controls id="audioPlayback"></audio>
+
+      <div class="crop-controls" id="crop-panel" style="display:none;">
+        <canvas id="customBar" width="550" height="70"></canvas>
+        <div style="margin:0.5rem 0 0.6rem 0;">
+          <span id="cropStartVal">0.00s</span>
+          <span style="margin:0 1.2rem;">→</span>
+          <span id="cropEndVal">10.00s</span>
+        </div>
+        <div>
+          <button class="main-btn" onclick="previewCrop()">▶️ Preview Crop</button>
+          <button class="main-btn" id="cropButton" onclick="cropAudio()">✂️ Crop &amp; Save</button>
+        </div>
+        <audio controls id="cropPlayback" style="margin-top:1rem; display:none;"></audio>
+        <div id="mint-ready-popup" style="display:none;">
+          <span>📌 New Mic Token Ready!</span><br/>
+          <button class="main-btn" id="mint-btn" onclick="showMintFields()">Ready to Mint</button>
+        </div>
+      </div>
+
+      <!-- Mint fields: hidden until crop -->
+      <div id="mint-fields" style="display:none;">
+        <div class="field">
+          <label class="form-label" for="voiceTitle">🎧 Voice Title:</label><br/>
+          <input id="voiceTitle" placeholder="My First Voice" type="text"/>
+        </div>
+        <div class="field">
+          <label class="form-label">💱 Selected Currency: <span id="currencyLabel">--</span></label><br/>
+          <select id="currencyType" onchange="updateCurrencyLabel()">
+            <option value="">-- Choose Currency --</option>
+            <option value="usdc">USDC</option>
+            <option value="eth">ETH</option>
+            <option value="sol">SOL</option>
+            <option value="bnb">BNB</option>
+            <option value="zorg">ZORG</option>
+            <option value="cardano">Cardano</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="form-label" for="walletAddress">📬 Wallet Address:</label><br/>
+          <input id="walletAddress" placeholder="Enter wallet address" type="text"/>
+        </div>
+        <div class="field">
+          <label class="form-label" for="contractAddress">📜 Contract / Policy Address:</label><br/>
+          <input id="contractAddress" placeholder="Enter contract or policy address" type="text"/>
+        </div>
+        <div class="field">
+          <label class="form-label" for="mintQty">🔁 Quantity to Mint:</label><br/>
+          <input id="mintQty" max="25" min="1" type="number" value="1"/>
+        </div>
+        <div>
+          <button class="main-btn" onclick="sendVoiceToken()">🎤 Mint &amp; Send Voice</button>
+        </div>
+      </div>
+    </div>
+    <!-- DAPPS & Utility panel BELOW mint -->
+    <section class="dapp-list" id="dapps" style="display:none;">
+      <article class="dapp-card">
+        <span class="dapp-icon">🎤</span>
+        <h2>Voice Changer</h2>
+        <p>Real-time audio manipulation</p>
+        <a class="launch-button" href="/voice-changer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">📋</span>
+        <h2>Quest Board</h2>
+        <p>Complete tasks, earn tokens</p>
+        <a class="launch-button" href="/quest-board">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎹</span>
+        <h2>NFT Mixer</h2>
+        <p>Blend tokens and NFTs into new forms</p>
+        <a class="launch-button" href="/token-mixer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🖼️</span>
+        <h2>NFT Viewer</h2>
+        <p>Display owned NFTs</p>
+        <a class="launch-button" href="/nft-viewer">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🎮</span>
+        <h2>Game Portal</h2>
+        <p>Play blockchain mini-games</p>
+        <a class="launch-button" href="/game">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🛒</span>
+        <h2>Marketplace</h2>
+        <p>Buy/sell items with tokens</p>
+        <a class="launch-button" href="/marketplace">Launch</a>
+      </article>
+      <article class="dapp-card">
+        <span class="dapp-icon">🔴</span>
+        <h2>RedNode</h2>
+        <p>AI-powered node system</p>
+        <a class="launch-button" href="/rednode">Launch</a>
+      </article>
+    </section>
+    <button class="utility-corner" id="utility-corner" onclick="document.getElementById('utility-panel').style.display='block';">
+      🛠️ Utility Tools
+    </button>
+    <div id="utility-panel" style="display:none; position:fixed; bottom:80px; right:25px; background:#260101; color:#ffd700; border:2px solid #ffd700; border-radius:10px; padding:1rem; width:260px; z-index:1000;">
+      <h3 style="margin-top:0;">🛠️ Utility Tools</h3>
+      <p><a href="/tracker" style="color:#ffd700; text-decoration:none;">📊 Token Tracker</a></p>
+      <p><a href="/voting" style="color:#ffd700; text-decoration:none;">🗳️ Voting System</a></p>
+      <p><a href="/analytics" style="color:#ffd700; text-decoration:none;">📈 Analytics Dashboard</a></p>
+      <hr style="border-color:#ffd700;"/>
+      <p><a href="/scripts" style="color:#ffd700; text-decoration:none;">📜 Script Runner</a></p>
+      <p><a href="/upload" style="color:#ffd700; text-decoration:none;">📂 Data Uploader</a></p>
+      <p><a href="/subscriptions" style="color:#ffd700; text-decoration:none;">🔔 Subscription Manager</a></p>
+      <button onclick="document.getElementById('utility-panel').style.display='none';" style="margin-top:0.5rem; padding:0.4rem 1rem; background:#b30000; color:#ffd700; border:2px solid #ffd700; border-radius:6px; cursor:pointer;">Close</button>
+    </div>
+    <footer>
+      <p>© 2025 ChainES Labs — Red &amp; Gold Edition</p>
+    </footer>
+  </div>
+  <script>
+    let mediaRecorder, audioChunks = [], timerInterval, seconds = 0, audioBlob = null, cropAudioBlob = null;
+    let audioBuffer = null, audioDuration = 10, cropStart=0, cropEnd=10;
+    let bar = null, ctx = null, waveformData = [], draggingHandle = null, dragOffset=0, playingCrop=false;
+
+    // --- Recording ---
+    function startRecording() {
+      audioChunks = [];
+      navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
+        seconds = 0;
+        document.getElementById("red-dot").style.visibility = "visible";
+        document.getElementById("record-timer").textContent = "00:00";
+        timerInterval = setInterval(() => {
+          seconds++;
+          document.getElementById("record-timer").textContent = `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+        }, 1000);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          audioBlob = new Blob(audioChunks, {type:'audio/wav'});
+          let url = URL.createObjectURL(audioBlob);
+          let audioEl = document.getElementById("audioPlayback");
+          audioEl.src = url; audioEl.style.display="none"; // Use custom bar
+          // Decode and draw waveform
+          let reader = new FileReader();
+          reader.onload = function(ev) {
+            let ac = new AudioContext();
+            ac.decodeAudioData(ev.target.result).then(buf=>{
+              audioBuffer = buf;
+              audioDuration = buf.duration;
+              cropStart = 0;
+              cropEnd = audioDuration;
+              document.getElementById('cropStartVal').textContent = '0.00s';
+              document.getElementById('cropEndVal').textContent = audioDuration.toFixed(2)+'s';
+              bar = document.getElementById("customBar");
+              ctx = bar.getContext('2d');
+              drawBar();
+              document.getElementById("crop-panel").style.display = "block";
+              document.getElementById("cropButton").disabled = false;
+              document.getElementById("mint-ready-popup").style.display = "none";
+              document.getElementById("cropPlayback").style.display = "none";
+              cropAudioBlob = null;
+              setupBarEvents();
+            });
+          };
+          reader.readAsArrayBuffer(audioBlob);
+          clearInterval(timerInterval);
+          document.getElementById("red-dot").style.visibility = "hidden";
+          document.getElementById("record-timer").textContent = "00:00";
+          alert("⏹️ Recording stopped.");
+        };
+        setTimeout(()=>{ if(mediaRecorder.state==="recording"){ mediaRecorder.stop(); } },10000);
+        alert("🎙️ Recording started...");
+      });
+    }
+    function stopRecording() {
+      if(mediaRecorder && mediaRecorder.state==="recording") {
+        mediaRecorder.stop();
+        clearInterval(timerInterval);
+        document.getElementById("red-dot").style.visibility = "hidden";
+        document.getElementById("record-timer").textContent = "00:00";
+      }
+    }
+
+    // --- Custom playback/crop bar logic ---
+    function drawBar(playPos = null) {
+      if (!ctx || !audioBuffer) return;
+      ctx.clearRect(0,0,bar.width,bar.height);
+      // Draw waveform
+      let W = bar.width, H = bar.height;
+      ctx.save();
+      ctx.translate(0, H/2);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let data = audioBuffer.getChannelData(0);
+      let step = Math.floor(data.length/W);
+      for (let i=0; i<W; i++) {
+        let min = 1.0, max = -1.0;
+        for(let j=0;j<step;j++){
+          let datum = data[(i*step)+j] || 0;
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
+        ctx.moveTo(i, min*H/2);
+        ctx.lineTo(i, max*H/2);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw crop region
+      let x1 = timeToX(cropStart), x2 = timeToX(cropEnd);
+      ctx.fillStyle = "rgba(255,215,0,0.13)";
+      ctx.fillRect(x1,0, x2-x1,H);
+
+      // Draw handles
+      drawHandle(x1, H);
+      drawHandle(x2, H);
+
+      // Draw crop times
+      ctx.fillStyle = "#ffd700";
+      ctx.font = "bold 13px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.fillText(cropStart.toFixed(2)+'s', x1, 15);
+      ctx.fillText(cropEnd.toFixed(2)+'s', x2, 15);
+
+      // Draw playback position if any
+      if (playPos!==null) {
+        let px = timeToX(playPos);
+        ctx.strokeStyle = "#ff0033";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px,0); ctx.lineTo(px,H);
+        ctx.stroke();
+      }
+    }
+    function drawHandle(x, H) {
+      ctx.save();
+      ctx.strokeStyle = "#b30000";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(x,0); ctx.lineTo(x,H);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, H/2, 9, 0, 2*Math.PI);
+      ctx.fillStyle = "#ffd700";
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#b30000";
+      ctx.stroke();
+      ctx.restore();
+    }
+    function timeToX(t) { return Math.max(0, Math.min(bar.width-1, t/audioDuration*bar.width)); }
+    function xToTime(x) { return Math.max(0, Math.min(audioDuration, x/bar.width*audioDuration)); }
+
+    function setupBarEvents() {
+      let dragging = false, whichHandle = null;
+      bar.onmousedown = function(e){
+        let rect = bar.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let distStart = Math.abs(x - timeToX(cropStart));
+        let distEnd = Math.abs(x - timeToX(cropEnd));
+        if (distStart < 14) { dragging=true; whichHandle='start'; }
+        else if (distEnd < 14) { dragging=true; whichHandle='end'; }
+        else { // seek/play from position
+          previewAt(xToTime(x));
+        }
+      };
+      bar.onmousemove = function(e){
+        if (!dragging) return;
+        let rect = bar.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let t = xToTime(x);
+        if (whichHandle==='start') {
+          cropStart = Math.max(0, Math.min(cropEnd-0.01, t));
+        } else if (whichHandle==='end') {
+          cropEnd = Math.max(cropStart+0.01, Math.min(audioDuration, t));
+        }
+        document.getElementById('cropStartVal').textContent = cropStart.toFixed(2)+'s';
+        document.getElementById('cropEndVal').textContent = cropEnd.toFixed(2)+'s';
+        drawBar();
+      };
+      document.onmouseup = function(e){ dragging=false; whichHandle=null; };
+    }
+
+    // --- Click to seek/play ---
+    function previewAt(t) {
+      if (!audioBuffer) return;
+      let ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+      let source = ctx2.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx2.destination);
+      source.start(0, t, 1.5); // play 1.5s segment
+      // Animate playhead
+      let playPos = t, startTime = performance.now();
+      function animatePlayhead(ts){
+        let elapsed = (ts-startTime)/1000;
+        drawBar(playPos+elapsed);
+        if (elapsed < 1.5) requestAnimationFrame(animatePlayhead);
+        else drawBar();
+      }
+      animatePlayhead(performance.now());
+      source.onended = () => { drawBar(); };
+    }
+
+    // --- Preview Crop Playback ---
+    function previewCrop() {
+      if(!audioBuffer) return alert("No audio to preview.");
+      let ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+      let len = cropEnd-cropStart;
+      let startSample = Math.floor(cropStart*audioBuffer.sampleRate);
+      let endSample = Math.floor(cropEnd*audioBuffer.sampleRate);
+      let cropLen = endSample-startSample;
+      let cropBuf = ctx2.createBuffer(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+      for(let ch=0;ch<audioBuffer.numberOfChannels;ch++)
+        cropBuf.getChannelData(ch).set(audioBuffer.getChannelData(ch).slice(startSample,endSample));
+      let source = ctx2.createBufferSource();
+      source.buffer = cropBuf;
+      source.connect(ctx2.destination);
+      source.start(0);
+      // Animate bar during crop preview
+      let playPos = cropStart, startTime = performance.now();
+      function animatePlayhead(ts){
+        let elapsed = (ts-startTime)/1000;
+        drawBar(playPos+elapsed);
+        if (elapsed < len) requestAnimationFrame(animatePlayhead);
+        else drawBar();
+      }
+      animatePlayhead(performance.now());
+      source.onended = () => { drawBar(); };
+      // Play in mini <audio> too:
+      let offline = new OfflineAudioContext(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+      let s2 = offline.createBufferSource();
+      s2.buffer = cropBuf;
+      s2.connect(offline.destination); s2.start();
+      offline.startRendering().then(rendered=>{
+        let wavBlob = bufferToWavBlob(rendered);
+        let audioEl = document.getElementById("cropPlayback");
+        audioEl.src = URL.createObjectURL(wavBlob);
+        audioEl.style.display = "block";
+        audioEl.play();
+      });
+    }
+
+    // --- Crop & Save Logic ---
+    function cropAudio() {
+      if(!audioBuffer) return alert("No audio recorded to crop.");
+      if(cropEnd<=cropStart) return alert("End must be after Start.");
+      let ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+      let startSample = Math.floor(cropStart*audioBuffer.sampleRate);
+      let endSample = Math.floor(cropEnd*audioBuffer.sampleRate);
+      let cropLen = endSample-startSample;
+      let cropBuf = ctx2.createBuffer(audioBuffer.numberOfChannels, cropLen, audioBuffer.sampleRate);
+      for(let ch=0;ch<audioBuffer.numberOfChannels;ch++)
+        cropBuf.getChannelData(ch).set(audioBuffer.getChannelData(ch).slice(startSample,endSample));
+      let offlineCtx = new OfflineAudioContext(cropBuf.numberOfChannels, cropLen, audioBuffer.sampleRate);
+      let source = offlineCtx.createBufferSource();
+      source.buffer = cropBuf; source.connect(offlineCtx.destination); source.start();
+      offlineCtx.startRendering().then(rendered=>{
+        cropAudioBlob = bufferToWavBlob(rendered);
+        let audioEl = document.getElementById("cropPlayback");
+        audioEl.src = URL.createObjectURL(cropAudioBlob);
+        audioEl.style.display = "block";
+        document.getElementById("mint-ready-popup").style.display = "block";
+        document.getElementById("mint-btn").style.display = "inline-block";
+        document.getElementById("cropButton").disabled = true;
+      });
+    }
+
+    function bufferToWavBlob(buffer) {
+      let numChannels = buffer.numberOfChannels, sampleRate = buffer.sampleRate, bitDepth=16;
+      let length = buffer.length * numChannels * 2 + 44;
+      let view = new DataView(new ArrayBuffer(length));
+      function writeStr(v, off, s) { for(let i=0;i<s.length;i++)v.setUint8(off+i,s.charCodeAt(i)); }
+      let o=0; writeStr(view,o,'RIFF'); o+=4;
+      view.setUint32(o, length-8, true); o+=4;
+      writeStr(view,o,'WAVE'); o+=4; writeStr(view,o,'fmt '); o+=4;
+      view.setUint32(o, 16, true); o+=4;
+      view.setUint16(o, 1, true); o+=2;
+      view.setUint16(o, numChannels, true); o+=2;
+      view.setUint32(o, sampleRate, true); o+=4;
+      view.setUint32(o, sampleRate*numChannels*2, true); o+=4;
+      view.setUint16(o, numChannels*2, true); o+=2;
+      view.setUint16(o, bitDepth, true); o+=2;
+      writeStr(view,o,'data'); o+=4;
+      view.setUint32(o, length-o-4, true); o+=4;
+      for(let i=0;i<buffer.length;i++)
+        for(let ch=0;ch<numChannels;ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1,Math.min(1,sample));
+          sample = sample<0?sample*32768:sample*32767;
+          view.setInt16(o, sample, true); o+=2;
+        }
+      return new Blob([view], {type:'audio/wav'});
+    }
+
+    function showMintFields() {
+      document.getElementById("mint-fields").style.display = "block";
+      document.getElementById("mint-btn").style.display = "none";
+    }
+
+    function updateCurrencyLabel() {
+      const label = document.getElementById("currencyLabel");
+      const select = document.getElementById("currencyType");
+      const selected = select.options[select.selectedIndex].text;
+      label.textContent = selected;
+    }
+
+    function sendVoiceToken() {
+      const title = document.getElementById("voiceTitle").value;
+      const quantity = parseInt(document.getElementById("mintQty").value);
+      const wallet = document.getElementById("walletAddress").value;
+      const currency = document.getElementById("currencyLabel").textContent;
+      if(!title || !wallet || !currency) return alert("Please complete all fields before minting.");
+      if(quantity<1 || quantity>25) return alert("Please choose a quantity between 1 and 25.");
+      let toMint = cropAudioBlob;
+      if(!toMint) return alert("Please crop and save your voice before minting.");
+      alert(`🎤 ${quantity}x "${title}" will be minted and sent to ${wallet} on ${currency} network.`);
+    }
+
+    document.getElementById("mint-mic").addEventListener("click", async ()=>{
+      try {
+        await navigator.mediaDevices.getUserMedia({audio:true});
+        alert("✅ Mic Token Verified. Welcome!");
+        document.getElementById("mic-tools").style.display="block";
+        document.getElementById("mint-mic").style.display="none";
+        // SHOW DAPPS and UTILITY BUTTON
+        document.getElementById("dapps").style.display = "grid";
+        document.getElementById("utility-corner").style.display = "block";
+        document.getElementById("utility-panel").style.display = "none";
+      } catch (err) { alert("❌ Mic access denied. Cannot continue."); }
+    });
+  </script>
+  <script>
+    window.APP_USER = "{{ session_username }}";
+    window.APP_WALLET = "{{ session_wallet }}";
+  </script>
+  <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>
