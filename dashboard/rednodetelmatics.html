@@ -1,0 +1,2352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RedNode • Machinery & Telematics Calibration Dashboard</title>
+
+  <!-- Plotly + PapaParse (CDN) -->
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      /* RedNode palette */
+      --bg0:#07060A;
+      --bg1:#0F0710;
+      --panel:rgba(255,255,255,0.04);
+      --panel2:rgba(255,255,255,0.06);
+      --stroke:rgba(255,255,255,0.09);
+      --text:#F6F3F5;
+      --muted:rgba(246,243,245,0.72);
+      --muted2:rgba(246,243,245,0.46);
+      --accent:#FF5A5F;    /* rednode accent */
+      --accent2:#FF8A00;   /* orange */
+      --good:#2DD36F;
+      --warn:#FFD56A;
+      --bad:#FF4D6D;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --shadow: 0 24px 90px rgba(0,0,0,0.65);
+      --radius: 14px;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 18% 0%, rgba(255,90,95,0.12), transparent 55%),
+        radial-gradient(900px 600px at 90% 18%, rgba(255,138,0,0.12), transparent 50%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow:hidden;
+    }
+    .app{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      height:100%;
+    }
+    .sidebar{
+      border-right:1px solid var(--stroke);
+      padding:18px 18px;
+      overflow:auto;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 30%);
+    }
+    .brand{
+      display:flex; gap:12px; align-items:center;
+      margin-bottom:14px;
+    }
+    .logo{
+      width:46px;height:46px;border-radius:10px;
+      background:
+        radial-gradient(circle at 22% 22%, rgba(255,255,255,0.28), transparent 40%),
+        linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 12px 36px rgba(255,90,95,0.16);
+      border:1px solid rgba(255,255,255,0.14);
+      display:flex;align-items:center;justify-content:center;
+      color:white;font-weight:800;font-size:16px;
+    }
+    .brand h1{
+      margin:0;
+      font-size:15px;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+    }
+    .brand p{
+      margin:2px 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding:12px;
+      margin:12px 0;
+    }
+    .card h3{
+      margin:0 0 8px;
+      font-size:12px;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      color:var(--muted);
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin:8px 0;
+    }
+    .row label{
+      flex: 1 1 auto;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .row input, .row select, .row textarea{
+      flex: 1.2 1 auto;
+      background:rgba(0,0,0,0.35);
+      border:1px solid var(--stroke);
+      color:var(--text);
+      border-radius:12px;
+      padding:8px 10px;
+      outline:none;
+      font-size:12px;
+    }
+    .row textarea{min-height:72px; font-family:var(--mono);}
+    .btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.16);
+      background: linear-gradient(135deg, rgba(255,90,95,0.18), rgba(255,138,0,0.12));
+      color:var(--text);
+      border-radius:12px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:12px;
+      letter-spacing:0.02em;
+      transition: transform .08s ease, filter .12s ease;
+    }
+    .btn:hover{filter:brightness(1.06);}
+    .btn:active{transform:translateY(1px);}
+    .btn.secondary{
+      background: rgba(255,255,255,0.04);
+    }
+    .btn.danger{
+      background: rgba(255,77,109,0.12);
+      border-color: rgba(255,77,109,0.20);
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid var(--stroke);
+      color:var(--muted);
+      font-size:12px;
+      margin:6px 0 0;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:50%;
+      background: var(--accent2);
+      box-shadow:0 0 0 4px rgba(255,138,0,0.12);
+    }
+
+    .main{
+      padding:16px 18px 18px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .tabs{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .tab{
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,0.04);
+      color:var(--muted);
+      cursor:pointer;
+      user-select:none;
+      font-size:12px;
+      font-weight:700;
+    }
+    .tab.active{
+      background: linear-gradient(135deg, rgba(255,90,95,0.18), rgba(255,138,0,0.14));
+      color:var(--text);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .content{
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      flex:1 1 auto;
+      display:grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      min-height:0;
+    }
+    .pane{
+      padding:14px;
+      overflow:auto;
+      min-height:0;
+    }
+    .pane.right{
+      border-left:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 35%);
+    }
+    .sectionTitle{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:10px;
+      margin:0 0 10px;
+    }
+    .sectionTitle h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:0.04em;
+    }
+    .sectionTitle small{color:var(--muted2);}
+
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+    .panel{
+      background: var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius: 12px;
+      padding:12px;
+      margin-bottom:10px;
+    }
+    .panel h4{
+      margin:0 0 8px;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px 10px;
+      align-items:center;
+      font-size:12px;
+    }
+    .kv .k{color:var(--muted);}
+    .kv .v{font-family:var(--mono);}
+
+    .sliderRow{
+      display:grid;
+      grid-template-columns: 1fr 110px 64px;
+      gap:10px;
+      align-items:center;
+      margin:8px 0;
+    }
+    input[type="range"]{width:100%;}
+    .num{
+      background: rgba(0,0,0,0.35);
+      border:1px solid var(--stroke);
+      border-radius:12px;
+      padding:7px 10px;
+      font-family:var(--mono);
+      font-size:12px;
+      width:100%;
+      color:var(--text);
+      outline:none;
+    }
+
+    .table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:12px;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background: rgba(0,0,0,0.18);
+    }
+    .table th, .table td{
+      padding:10px 10px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      white-space:nowrap;
+      max-width:220px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .table th{
+      text-align:left;
+      color:var(--muted);
+      font-weight:700;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      font-size:11px;
+      background: rgba(255,255,255,0.03);
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+    .table tr:hover td{ background: rgba(255,90,95,0.06); cursor:pointer;}
+    .badge{
+      padding:5px 10px;
+      border-radius:999px;
+      font-size:11px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .badge.good{border-color:rgba(45,211,111,0.28); background:rgba(45,211,111,0.08);}
+    .badge.warn{border-color:rgba(255,213,106,0.28); background:rgba(255,213,106,0.08);}
+    .badge.bad{border-color:rgba(255,77,109,0.28); background:rgba(255,77,109,0.06);}
+    .muted{color:var(--muted);}
+    .mono{font-family:var(--mono);}
+    .hr{height:1px;background:rgba(255,255,255,0.06);margin:10px 0;}
+    .small{font-size:11px;color:var(--muted2);}
+    .log{
+      font-family:var(--mono);
+      font-size:11px;
+      color:rgba(246,243,245,0.84);
+      background:rgba(0,0,0,0.30);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:10px;
+      padding:10px;
+      max-height:160px;
+      overflow:auto;
+      line-height:1.5;
+    }
+    .hint{
+      color:var(--muted2);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .dropzone{
+      border:1px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.02);
+      border-radius:12px;
+      padding:14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .dropzone strong{font-size:12px;}
+    .dropzone em{color:var(--muted); font-style:normal; font-size:12px;}
+    .footer{
+      margin-top:10px;font-size:11px;color:var(--muted2);
+    }
+    .link{color:var(--accent2);text-decoration:none;font-weight:700;}
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">RN</div>
+      <div>
+        <h1>RedNode</h1>
+        <p>Machinery • Telematics Console</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Dataset</h3>
+      <div class="kv">
+        <div class="k">Rows</div><div class="v" id="statRows">0</div>
+        <div class="k">Columns</div><div class="v" id="statCols">0</div>
+        <div class="k">Scored</div><div class="v" id="statScored">No</div>
+      </div>
+      <div class="pill"><span class="dot"></span><span id="statProfile">Profile: Global</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Integration</h3>
+      <div class="row">
+        <label>API Base URL</label>
+        <input id="rnApiBase" placeholder="https://api.rednode.ai" />
+      </div>
+      <div class="row">
+        <label>API Key</label>
+        <input id="rnApiKey" placeholder="(paste key)" />
+      </div>
+      <div class="row">
+        <button class="btn" id="btnTestConn">Test Connect</button>
+        <button class="btn secondary" id="btnFetchMachines">Fetch Machines</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnStartStream">Start Telemetry Stream</button>
+      </div>
+      <div class="small">Use these hooks to connect to RedNode cloud or your own gateway. See README: <a class="link" href="https://github.com/SECUREA1/REDNODE" target="_blank">SECUREA1/REDNODE</a></div>
+    </div>
+
+    <div class="card">
+      <h3>Safety Thresholds</h3>
+      <div class="row"><label>Max Temp (°C)</label><input id="gateMaxTemp" value="110" /></div>
+      <div class="row"><label>Max Vibration (g)</label><input id="gateMaxVib" value="9.0" /></div>
+      <div class="row"><label>Min Signal Quality (0..1)</label><input id="gateMinSignal" value="0.6" /></div>
+      <div class="row"><label>On Gate Fail</label>
+        <select id="gatePolicy">
+          <option value="zero">Set Health = 0</option>
+          <option value="neg">Set Health = -1</option>
+          <option value="drop">Drop telemetry from scoring</option>
+        </select>
+      </div>
+      <div class="row"><button class="btn" id="btnApplyGates">Apply Thresholds</button></div>
+      <div class="small">Gates are enforced before feature normalization and scoring.</div>
+    </div>
+
+    <div class="card">
+      <h3>Console</h3>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="footer">
+      <div>Powered by <a class="link" href="https://rednode.ai" target="_blank">rednode.ai</a></div>
+      <div style="margin-top:6px">Repo: <a class="link" href="https://github.com/SECUREA1/REDNODE" target="_blank">SECUREA1/REDNODE</a></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="tabs">
+        <div class="tab active" data-tab="data">Data</div>
+        <div class="tab" data-tab="scoring">Scoring</div>
+        <div class="tab" data-tab="calibration">Calibration</div>
+        <div class="tab" data-tab="bins">Binning & Tags</div>
+        <div class="tab" data-tab="export">Export</div>
+      </div>
+    </div>
+
+    <section class="content">
+      <!-- LEFT PANE -->
+      <div class="pane" id="leftPane"></div>
+      <!-- RIGHT PANE -->
+      <div class="pane right" id="rightPane"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+/** =========================
+ *  RedNode Telematics Dashboard
+ *  Single-file app derived from CHAINeS.
+ *  ========================= */
+
+const App = (() => {
+  const state = {
+    tab: "data",
+    rawRows: [],
+    columns: [],
+    scoredRows: [],
+    lastScoreStats: null,
+    selectedRowIndex: null,
+
+    // schema mapping tailored for telemetry
+    schema: {
+      machineId: "",
+      timestamp: "",
+      jobsite: "",
+      location: "",
+      rpm: "",
+      torque: "",
+      temperature: "",
+      vibration: "",
+      fuel: "",
+      signalQuality: "",
+      operator: "",
+      sequenceId: ""
+    },
+
+    // normalization config (multi-scale)
+    norm: {
+      scope: "global", // global | machine | machine_jobsite
+      method: "minmax",
+      clip01: true
+    },
+
+    // weights (hierarchical)
+    profiles: {
+      global: defaultWeights(),
+      machine: {},
+      jobsite: {}
+    },
+
+    // gates
+    gates: {
+      maxTemp: 110,
+      maxVib: 9.0,
+      minSignal: 0.6,
+      policy: "zero"
+    },
+
+    // token thresholds (health)
+    tokens: {
+      healthy: 0.80,
+      attention: 0.60,
+      warning: 0.40
+    },
+
+    // bin thresholds for telemetry features
+    bins: {
+      highTemp: 0.80,
+      highVib: 0.80,
+      lowFuel: 0.30
+    },
+
+    // integration state (not persisted)
+    integration: {
+      apiBase: "",
+      apiKey: "",
+      ws: null
+    }
+  };
+
+  // UI refs
+  const ui = {
+    left: document.getElementById("leftPane"),
+    right: document.getElementById("rightPane"),
+    log: document.getElementById("log"),
+
+    statRows: document.getElementById("statRows"),
+    statCols: document.getElementById("statCols"),
+    statScored: document.getElementById("statScored"),
+    statProfile: document.getElementById("statProfile"),
+
+    rnApiBase: document.getElementById("rnApiBase"),
+    rnApiKey: document.getElementById("rnApiKey"),
+    btnTestConn: document.getElementById("btnTestConn"),
+    btnFetchMachines: document.getElementById("btnFetchMachines"),
+    btnStartStream: document.getElementById("btnStartStream"),
+
+    gateMaxTemp: document.getElementById("gateMaxTemp"),
+    gateMaxVib: document.getElementById("gateMaxVib"),
+    gateMinSignal: document.getElementById("gateMinSignal"),
+    gatePolicy: document.getElementById("gatePolicy"),
+    btnApplyGates: document.getElementById("btnApplyGates"),
+    scopeSelect: document.getElementById("scopeSelect"),
+    segmentSelect: document.getElementById("segmentSelect"),
+    movementSelect: document.getElementById("movementSelect"),
+    btnResetScope: document.getElementById("btnResetScope"),
+  };
+
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    ui.log.innerHTML = `<div><span class="mono">${t}</span> — ${escapeHtml(msg)}</div>` + ui.log.innerHTML;
+  }
+  function escapeHtml(s){
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  }
+
+  /** -------------------------
+   * Defaults (weights)
+   * ------------------------- */
+  function defaultWeights(){
+    return {
+      benefits: {
+        rpm: 0.30,
+        torque: 0.15,
+        signal: 0.25,
+        fuelEfficiency: 0.10,
+        uptime: 0.20
+      },
+      costs: {
+        temperature: 0.45,
+        vibration: 0.35,
+        complexity: 0.20
+      },
+      difficultyBoostK: 0.10,
+      normalizeBenefits: true,
+      normalizeCosts: true
+    };
+  }
+
+  /** -------------------------
+   * Tab rendering
+   * ------------------------- */
+  function render(){
+    // top sidebar stats
+    ui.statRows.textContent = state.rawRows.length;
+    ui.statCols.textContent = state.columns.length;
+    ui.statScored.textContent = state.scoredRows.length ? "Yes" : "No";
+
+    hydrateScopeSelectors();
+
+    if(state.tab === "data") renderDataTab();
+    if(state.tab === "scoring") renderScoringTab();
+    if(state.tab === "calibration") renderCalibrationTab();
+    if(state.tab === "bins") renderBinsTab();
+    if(state.tab === "export") renderExportTab();
+
+    renderRightPane();
+  }
+  function setTab(tab){
+    state.tab = tab;
+    document.querySelectorAll(".tab").forEach(t=>{
+      t.classList.toggle("active", t.dataset.tab === tab);
+    });
+    render();
+  }
+
+  /** -------------------------
+   * Right pane (context + charts)
+   * ------------------------- */
+  function renderRightPane(){
+    if(!state.rawRows.length){
+      ui.right.innerHTML = `
+        <div class="sectionTitle">
+          <h2>Live Preview</h2>
+          <small>Upload telemetry CSV or connect to RedNode</small>
+        </div>
+        <div class="panel">
+          <h4>Overview</h4>
+          <div class="hint">
+            This console turns machine telemetry into:
+            <ul>
+              <li>Normalized telematics features</li>
+              <li>Health / Equipment value</li>
+              <li>Tags → Controller / Maintenance flows</li>
+              <li>Sequence tokens</li>
+            </ul>
+            Start by uploading a CSV or use the Integration panel to stream telemetry from RedNode.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if(state.scoredRows.length){
+      const row = (state.selectedRowIndex != null) ? state.scoredRows[state.selectedRowIndex] : null;
+      ui.right.innerHTML = `
+        <div class="sectionTitle">
+          <h2>Analytics</h2>
+          <small>${state.scoredRows.length.toLocaleString()} scored telemetry records</small>
+        </div>
+
+        <div class="panel">
+          <h4>System Summary</h4>
+          ${renderSystemSummary()}
+        </div>
+
+        <div class="panel">
+          <h4>Charts</h4>
+          <div class="grid2">
+            <div><div id="chartScoreHist" style="height:220px;"></div></div>
+            <div><div id="chartScatter" style="height:220px;"></div></div>
+          </div>
+          <div class="hr"></div>
+          <div><div id="chartHeatmap" style="height:260px;"></div></div>
+          <div class="hr"></div>
+          <div><div id="chartTokens" style="height:220px;"></div></div>
+        </div>
+
+        <div class="panel">
+          <h4>Selected Record Breakdown</h4>
+          ${row ? renderRowBreakdown(row) : `<div class="hint">Click a row in the table to inspect contributions.</div>`}
+        </div>
+      `;
+      setTimeout(()=>drawCharts(), 0);
+      return;
+    }
+
+    ui.right.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Ready to Score</h2>
+        <small>Map schema → configure scoring</small>
+      </div>
+      <div class="panel">
+        <h4>Next steps</h4>
+        <div class="hint">
+          1) Map telemetry columns in the <b>Data</b> tab<br/>
+          2) Tune normalization + weights in <b>Scoring</b><br/>
+          3) Press <b>Compute Health Scores</b>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSystemSummary(){
+    const s = state.lastScoreStats;
+    if(!s) return `<div class="hint">No score stats yet.</div>`;
+    const rating = rateSystem(s.avgValue);
+    const cls = ratingClass(rating);
+    return `
+      <div class="kv">
+        <div class="k">Average Health</div><div class="v">${s.avgValue.toFixed(4)}</div>
+        <div class="k">Std Dev</div><div class="v">${s.stdValue.toFixed(4)}</div>
+        <div class="k">Min / Max</div><div class="v">${s.minValue.toFixed(4)} / ${s.maxValue.toFixed(4)}</div>
+        <div class="k">Status Mix</div><div class="v">${s.tokenSummary}</div>
+        <div class="k">System Rating</div><div class="v"><span class="badge ${cls}">${rating}</span></div>
+      </div>
+    `;
+  }
+
+  function renderRowBreakdown(r){
+    const c = r.contributions;
+    const badge = tokenBadge(r.token);
+    return `
+      <div class="kv">
+        <div class="k">Machine</div><div class="v">${escapeHtml(r.machineId || "(none)")}</div>
+        <div class="k">JobSite</div><div class="v">${escapeHtml(r.jobsite || "(none)")}</div>
+        <div class="k">Health</div><div class="v">${r.value.toFixed(4)} ${badge}</div>
+        <div class="k">Tags</div><div class="v">${escapeHtml(r.binId)}</div>
+        <div class="k">Gated?</div><div class="v">${r.gated ? `<span class="badge bad">YES</span>` : `<span class="badge good">NO</span>`}</div>
+      </div>
+      <div class="hr"></div>
+      <div class="kv">
+        <div class="k">+ RPM</div><div class="v">${c.rpm.toFixed(4)}</div>
+        <div class="k">+ Torque</div><div class="v">${c.torque.toFixed(4)}</div>
+        <div class="k">+ Signal</div><div class="v">${c.signal.toFixed(4)}</div>
+        <div class="k">- Temp</div><div class="v">${c.temperature.toFixed(4)}</div>
+        <div class="k">- Vibration</div><div class="v">${c.vibration.toFixed(4)}</div>
+        <div class="k">Difficulty Boost</div><div class="v">${c.difficultyBoost.toFixed(4)}</div>
+      </div>
+      <div class="hr"></div>
+      <div class="small mono">
+        Raw: rpm=${fmt(r.raw.rpm)} temp=${fmt(r.raw.temperature)} vib=${fmt(r.raw.vibration)} torque=${fmt(r.raw.torque)} fuel=${fmt(r.raw.fuel)} signal=${fmt(r.raw.signalQuality)}
+      </div>
+    `;
+  }
+
+  function fmt(v){ if(v == null || Number.isNaN(v)) return "∅"; if(typeof v === "number") return v.toFixed(4); return String(v); }
+
+  /** -------------------------
+   * Charts
+   * ------------------------- */
+  function drawCharts(){
+    const rows = state.scoredRows;
+    const values = rows.map(r=>r.value);
+    Plotly.newPlot("chartScoreHist", [{
+      x: values,
+      type:"histogram",
+      nbinsx: 28,
+      marker:{line:{width:0}}
+    }], chartLayout("Health Distribution", "Health", "Count"), chartConfig());
+
+    const rpm = rows.map(r=>r.raw.rpm ?? null);
+    Plotly.newPlot("chartScatter", [{
+      x: rpm,
+      y: values,
+      mode:"markers",
+      type:"scattergl",
+      marker:{size:7, opacity:0.75}
+    }], chartLayout("Health vs RPM", "RPM", "Health"), chartConfig());
+
+    const machines = unique(rows.map(r=>r.machineId || "(none)")).slice(0,14);
+    const jobs = unique(rows.map(r=>r.jobsite || "(none)")).slice(0,14);
+    const z = machines.map(m=>{
+      return jobs.map(j=>{
+        const subset = rows.filter(r=>(r.machineId||"(none)")==m && (r.jobsite||"(none)")==j);
+        if(!subset.length) return null;
+        return subset.reduce((a,b)=>a+b.value,0)/subset.length;
+      });
+    });
+
+    Plotly.newPlot("chartHeatmap", [{
+      z,
+      x: jobs,
+      y: machines,
+      type:"heatmap",
+      hoverongaps:false
+    }], chartLayout("Avg Health Heatmap (Machine × JobSite)", "JobSite", "Machine"), chartConfig());
+
+    const counts = {Healthy:0, Attention:0, Warning:0, Critical:0};
+    rows.forEach(r=>counts[r.token] = (counts[r.token]||0)+1);
+    Plotly.newPlot("chartTokens", [{
+      x: Object.keys(counts),
+      y: Object.values(counts),
+      type:"bar",
+      marker:{color:["#2DD36F","#FFD56A","#FF8A00","#FF4D6D"]}
+    }], chartLayout("Status Distribution", "Status", "Count"), chartConfig());
+  }
+
+  function chartLayout(title, xTitle, yTitle){
+    return {
+      title: {text:title, font:{size:12, color:"rgba(246,243,245,0.92)"}},
+      paper_bgcolor:"rgba(0,0,0,0)",
+      plot_bgcolor:"rgba(0,0,0,0.12)",
+      margin:{l:48,r:18,t:34,b:38},
+      xaxis:{title:{text:xTitle, font:{size:11}}, gridcolor:"rgba(255,255,255,0.06)", zerolinecolor:"rgba(255,255,255,0.06)", tickfont:{size:10}},
+      yaxis:{title:{text:yTitle, font:{size:11}}, gridcolor:"rgba(255,255,255,0.06)", zerolinecolor:"rgba(255,255,255,0.06)", tickfont:{size:10}},
+      font:{color:"rgba(246,243,245,0.9)"}
+    };
+  }
+  function chartConfig(){ return {displayModeBar:false, responsive:true}; }
+
+  /** -------------------------
+   * Data tab
+   * ------------------------- */
+  function renderDataTab(){
+    ui.left.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Telemetry Intake</h2>
+        <small>Upload CSV → map telemetry schema</small>
+      </div>
+
+      <div class="panel">
+        <h4>Upload / Stream</h4>
+        <div class="dropzone" id="dropzone">
+          <div>
+            <strong>Drag & drop telemetry CSV</strong><br/>
+            <em class="muted">or use file picker</em>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none" />
+            <button class="btn" id="btnPick">Upload CSV</button>
+            <button class="btn secondary" id="btnSample">Generate Sample Telemetry</button>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">
+          Your CSV can have any column names — map the telemetry fields below.
+          Common names will be auto-mapped.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Schema Mapping</h4>
+        ${renderSchemaMapping()}
+        <div class="hr"></div>
+        <div class="grid2">
+          <button class="btn" id="btnApplySchema">Apply Schema</button>
+          <button class="btn secondary" id="btnClearData">Clear Dataset</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Normalization</h4>
+        <div class="grid3">
+          <div>
+            <div class="small">Scope</div>
+            <select id="normScope" class="num">
+              <option value="global">Global</option>
+              <option value="machine">Per Machine</option>
+              <option value="machine_jobsite">Per Machine + JobSite</option>
+            </select>
+          </div>
+          <div>
+            <div class="small">Method</div>
+            <select id="normMethod" class="num">
+              <option value="minmax">Min–Max (0..1)</option>
+              <option value="zsigmoid">Z-Score → Sigmoid</option>
+              <option value="robustsigmoid">Robust (Median/MAD) → Sigmoid</option>
+            </select>
+          </div>
+          <div>
+            <div class="small">Clip to 0..1</div>
+            <select id="normClip" class="num">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">
+          Use machine scope if different machines have different scale ranges.
+        </div>
+      </div>
+    `;
+
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    document.getElementById("btnPick").onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+      const f = e.target.files?.[0];
+      if(f) parseCsvFile(f);
+    };
+
+    dropzone.addEventListener("dragover", (e)=>{ e.preventDefault(); dropzone.style.filter="brightness(1.06)"; });
+    dropzone.addEventListener("dragleave", ()=>{ dropzone.style.filter=""; });
+    dropzone.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      dropzone.style.filter="";
+      const f = e.dataTransfer.files?.[0];
+      if(f) parseCsvFile(f);
+    });
+
+    document.getElementById("btnSample").onclick = () => generateSampleData();
+
+    document.getElementById("btnApplySchema").onclick = () => {
+      pullSchemaFromUI();
+      log("Schema applied.");
+      state.scoredRows = [];
+      state.lastScoreStats = null;
+      state.selectedRowIndex = null;
+      hydrateScopeSelectors();
+      render();
+    };
+
+    document.getElementById("btnClearData").onclick = () => {
+      if(!confirm("Clear dataset and scored results?")) return;
+      state.rawRows = [];
+      state.columns = [];
+      state.scoredRows = [];
+      state.lastScoreStats = null;
+      state.selectedRowIndex = null;
+      state.schema = {machineId:"", timestamp:"", jobsite:"", location:"", rpm:"", torque:"", temperature:"", vibration:"", fuel:"", signalQuality:"", operator:"", sequenceId:""};
+      log("Dataset cleared.");
+      render();
+    };
+
+    document.getElementById("normScope").value = state.norm.scope;
+    document.getElementById("normMethod").value = state.norm.method;
+    document.getElementById("normClip").value = String(state.norm.clip01);
+
+    document.getElementById("normScope").onchange = (e)=>{ state.norm.scope = e.target.value; log(`Normalization scope → ${state.norm.scope}`); };
+    document.getElementById("normMethod").onchange = (e)=>{ state.norm.method = e.target.value; log(`Normalization method → ${state.norm.method}`); };
+    document.getElementById("normClip").onchange = (e)=>{ state.norm.clip01 = (e.target.value === "true"); log(`Clip 0..1 → ${state.norm.clip01}`); };
+  }
+
+  function renderSchemaMapping(){
+    const cols = state.columns;
+    const opt = (val) => `<option value="${escapeHtml(val)}">${escapeHtml(val)}</option>`;
+    const select = (id) => `
+      <select id="${id}" class="num">
+        <option value="">(none)</option>
+        ${cols.map(opt).join("")}
+      </select>
+    `;
+
+    return `
+      <div class="grid2">
+        <div>
+          <div class="small">Machine ID</div>${select("mapMachine")}
+        </div>
+        <div>
+          <div class="small">Timestamp</div>${select("mapTimestamp")}
+        </div>
+
+        <div>
+          <div class="small">JobSite</div>${select("mapJobsite")}
+        </div>
+        <div>
+          <div class="small">Location</div>${select("mapLocation")}
+        </div>
+
+        <div>
+          <div class="small">RPM</div>${select("mapRPM")}
+        </div>
+        <div>
+          <div class="small">Torque</div>${select("mapTorque")}
+        </div>
+
+        <div>
+          <div class="small">Temperature (°C)</div>${select("mapTemp")}
+        </div>
+        <div>
+          <div class="small">Vibration (g)</div>${select("mapVib")}
+        </div>
+
+        <div>
+          <div class="small">Fuel Level</div>${select("mapFuel")}
+        </div>
+        <div>
+          <div class="small">Signal Quality (0..1)</div>${select("mapSignal")}
+        </div>
+
+        <div>
+          <div class="small">Operator</div>${select("mapOperator")}
+        </div>
+        <div>
+          <div class="small muted">Tip</div>
+          <div class="hint">If a column is missing, defaults will be applied safely.</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function pullSchemaFromUI(){
+    state.schema.machineId = document.getElementById("mapMachine")?.value || "";
+    state.schema.timestamp = document.getElementById("mapTimestamp")?.value || "";
+    state.schema.jobsite = document.getElementById("mapJobsite")?.value || "";
+    state.schema.location = document.getElementById("mapLocation")?.value || "";
+    state.schema.rpm = document.getElementById("mapRPM")?.value || "";
+    state.schema.torque = document.getElementById("mapTorque")?.value || "";
+    state.schema.temperature = document.getElementById("mapTemp")?.value || "";
+    state.schema.vibration = document.getElementById("mapVib")?.value || "";
+    state.schema.fuel = document.getElementById("mapFuel")?.value || "";
+    state.schema.signalQuality = document.getElementById("mapSignal")?.value || "";
+    state.schema.operator = document.getElementById("mapOperator")?.value || "";
+  }
+
+  function parseCsvFile(file){
+    log(`Parsing CSV: ${file.name}`);
+    Papa.parse(file, {
+      header:true,
+      dynamicTyping:false,
+      skipEmptyLines:true,
+      complete: (res)=>{
+        const rows = res.data || [];
+        const cols = res.meta?.fields || [];
+        state.rawRows = rows;
+        state.columns = cols;
+        state.scoredRows = [];
+        state.lastScoreStats = null;
+        state.selectedRowIndex = null;
+        autoMapSchema();
+        hydrateScopeSelectors();
+        log(`Loaded ${rows.length} rows, ${cols.length} columns.`);
+        render();
+      },
+      error: (err)=>{
+        log(`CSV parse error: ${err}`);
+        alert("CSV parse error. See console.");
+      }
+    });
+  }
+
+  function autoMapSchema(){
+    const cols = state.columns.map(c=>String(c||""));
+    const find = (cands) => {
+      for(const cand of cands){
+        const hit = cols.find(c=>c.toLowerCase() === cand.toLowerCase());
+        if(hit) return hit;
+      }
+      return "";
+    };
+
+    state.schema.machineId = state.schema.machineId || find(["machineid","machine_id","MachineID","Machine"]);
+    state.schema.timestamp = state.schema.timestamp || find(["timestamp","time","ts","datetime"]);
+    state.schema.jobsite = state.schema.jobsite || find(["jobsite","job_site","site"]);
+    state.schema.location = state.schema.location || find(["location","latlon","coords"]);
+    state.schema.rpm = state.schema.rpm || find(["rpm","RPM","engine_rpm"]);
+    state.schema.torque = state.schema.torque || find(["torque","Torque"]);
+    state.schema.temperature = state.schema.temperature || find(["temperature","temp","engine_temp"]);
+    state.schema.vibration = state.schema.vibration || find(["vibration","vib","vibration_g"]);
+    state.schema.fuel = state.schema.fuel || find(["fuel","fuel_level","fuelpercent"]);
+    state.schema.signalQuality = state.schema.signalQuality || find(["signalquality","signal_quality","quality"]);
+    state.schema.operator = state.schema.operator || find(["operator","driver","user"]);
+    state.schema.sequenceId = state.schema.sequenceId || find(["sequenceid","sequence_id","seq","event_id"]);
+    log("Auto-mapped telemetry schema (best effort). Confirm mappings in Data tab.");
+  }
+
+  function generateSampleData(){
+    const machines = ["EXC-100","EXC-101","LOADER-21","CRANE-3","TRUCK-7","TRACT-4"];
+    const sites = ["Site-A","Site-B","Site-C","Depot"];
+    const rows = [];
+    for(let i=0;i<380;i++){
+      const m = machines[Math.floor(Math.random()*machines.length)];
+      const s = sites[Math.floor(Math.random()*sites.length)];
+      const rpm = Math.round(400 + Math.random()*2200);
+      const torque = round(50 + Math.random()*250,2);
+      const temp = round(50 + Math.random()*70 + (m.startsWith("CRANE")?5:0),2);
+      const vib = round(0.3 + Math.random()*9.5,3);
+      const fuel = round(Math.max(0.05, Math.random()),3);
+      const signal = round(0.5 + Math.random()*0.5,3);
+      const seq = "SEQ_" + String(1 + Math.floor(i/6)).padStart(3,"0");
+      rows.push({
+        MachineID: m,
+        JobSite: s,
+        Timestamp: new Date(Date.now() - Math.random()*1000*3600*48).toISOString(),
+        RPM: rpm,
+        Torque: torque,
+        Temperature: temp,
+        Vibration: vib,
+        FuelLevel: fuel,
+        SignalQuality: signal,
+        Operator: "op" + String(1+Math.floor(Math.random()*6)),
+        SequenceID: seq
+      });
+    }
+    state.rawRows = rows;
+    state.columns = Object.keys(rows[0] || {});
+    state.scoredRows = [];
+    state.lastScoreStats = null;
+    state.selectedRowIndex = null;
+
+    // set schema for sample
+    state.schema.machineId = "MachineID";
+    state.schema.jobsite = "JobSite";
+    state.schema.timestamp = "Timestamp";
+    state.schema.rpm = "RPM";
+    state.schema.torque = "Torque";
+    state.schema.temperature = "Temperature";
+    state.schema.vibration = "Vibration";
+    state.schema.fuel = "FuelLevel";
+    state.schema.signalQuality = "SignalQuality";
+    state.schema.operator = "Operator";
+    state.schema.sequenceId = "SequenceID";
+
+    hydrateScopeSelectors();
+    log("Generated sample telemetry dataset (380 rows).");
+    render();
+  }
+
+  /** -------------------------
+   * Scoring tab
+   * ------------------------- */
+  function renderScoringTab(){
+    ui.left.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Health Engine</h2>
+        <small>Weights, normalization, compute</small>
+      </div>
+
+      <div class="panel">
+        <h4>Compute</h4>
+        <div class="grid2">
+          <button class="btn" id="btnScore">Compute Health Scores</button>
+          <button class="btn secondary" id="btnClearScores">Clear Scores</button>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">
+          Health values are computed per telemetry record with hierarchical weights.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Weights — Benefits</h4>
+        <div id="benefitSliders"></div>
+        <div class="hr"></div>
+        <div class="row">
+          <label>Normalize benefits (sum=1)</label>
+          <select id="normBenefits" class="num">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Weights — Costs</h4>
+        <div id="costSliders"></div>
+        <div class="hr"></div>
+        <div class="row">
+          <label>Normalize costs (sum=1)</label>
+          <select id="normCosts" class="num">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Difficulty Scaling</h4>
+        <div class="row">
+          <label>Boost k (0..0.5)</label>
+          <input id="diffK" class="num" />
+        </div>
+        <div class="hint">
+          Final value multiplier: <span class="mono">(1 + k*difficulty)</span>.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Quick Actions</h4>
+        <div class="grid2">
+          <button class="btn secondary" id="btnSaveLocal">Save to Local</button>
+          <button class="btn secondary" id="btnLoadLocal">Load from Local</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btnScore").onclick = () => {
+      if(!state.rawRows.length){ alert("Load telemetry first."); return; }
+      computeScores();
+      log("Health scores computed.");
+      render();
+    };
+    document.getElementById("btnClearScores").onclick = () => {
+      state.scoredRows = [];
+      state.lastScoreStats = null;
+      state.selectedRowIndex = null;
+      log("Scores cleared.");
+      render();
+    };
+
+    const prof = getActiveProfileRef();
+    renderWeightSliders("benefitSliders", prof.benefits, ["rpm","torque","signal","fuelEfficiency","uptime"], (k,v)=>{
+      prof.benefits[k]=v;
+      persistProfileScope();
+    });
+
+    renderWeightSliders("costSliders", prof.costs, ["temperature","vibration","complexity"], (k,v)=>{
+      prof.costs[k]=v;
+      persistProfileScope();
+    });
+
+    document.getElementById("normBenefits").value = String(!!prof.normalizeBenefits);
+    document.getElementById("normCosts").value = String(!!prof.normalizeCosts);
+    document.getElementById("diffK").value = String(prof.difficultyBoostK ?? 0.10);
+
+    document.getElementById("normBenefits").onchange = (e)=>{
+      prof.normalizeBenefits = (e.target.value==="true");
+      persistProfileScope();
+      log(`normalizeBenefits → ${prof.normalizeBenefits}`);
+    };
+    document.getElementById("normCosts").onchange = (e)=>{
+      prof.normalizeCosts = (e.target.value==="true");
+      persistProfileScope();
+      log(`normalizeCosts → ${prof.normalizeCosts}`);
+    };
+    document.getElementById("diffK").onchange = (e)=>{
+      prof.difficultyBoostK = clamp(parseFloat(e.target.value), 0, 0.5);
+      e.target.value = String(prof.difficultyBoostK);
+      persistProfileScope();
+      log(`difficultyBoostK → ${prof.difficultyBoostK}`);
+    };
+
+    document.getElementById("btnSaveLocal").onclick = () => {
+      localStorage.setItem("rednode_profiles_v1", JSON.stringify(state.profiles));
+      localStorage.setItem("rednode_norm_v1", JSON.stringify(state.norm));
+      localStorage.setItem("rednode_gates_v1", JSON.stringify(state.gates));
+      localStorage.setItem("rednode_tokens_v1", JSON.stringify(state.tokens));
+      localStorage.setItem("rednode_bins_v1", JSON.stringify(state.bins));
+      log("Saved config to localStorage.");
+      alert("Saved to localStorage.");
+    };
+    document.getElementById("btnLoadLocal").onclick = () => {
+      try{
+        const p = JSON.parse(localStorage.getItem("rednode_profiles_v1")||"null");
+        const n = JSON.parse(localStorage.getItem("rednode_norm_v1")||"null");
+        const g = JSON.parse(localStorage.getItem("rednode_gates_v1")||"null");
+        const t = JSON.parse(localStorage.getItem("rednode_tokens_v1")||"null");
+        const b = JSON.parse(localStorage.getItem("rednode_bins_v1")||"null");
+        if(p) state.profiles = p;
+        if(n) state.norm = n;
+        if(g) state.gates = g;
+        if(t) state.tokens = t;
+        if(b) state.bins = b;
+        syncGatesUIFromState();
+        log("Loaded config from localStorage.");
+        render();
+        alert("Loaded from localStorage.");
+      }catch(e){
+        alert("Failed to load from localStorage.");
+      }
+    };
+  }
+
+  function renderWeightSliders(containerId, obj, keys, onChange){
+    const el = document.getElementById(containerId);
+    el.innerHTML = keys.map(k=>{
+      const v = obj[k] ?? 0;
+      return `
+        <div class="sliderRow">
+          <div class="name">${k.toUpperCase()}</div>
+          <input type="range" min="0" max="1" step="0.01" value="${v}" data-k="${k}" />
+          <input class="num" value="${v.toFixed(2)}" data-k="${k}" />
+        </div>
+      `;
+    }).join("");
+
+    el.querySelectorAll('input[type="range"]').forEach(r=>{
+      r.oninput = () => {
+        const k = r.dataset.k;
+        const v = parseFloat(r.value);
+        const num = el.querySelector(`input.num[data-k="${k}"]`);
+        if(num) num.value = v.toFixed(2);
+        onChange(k,v);
+      };
+    });
+    el.querySelectorAll('input.num').forEach(n=>{
+      n.onchange = ()=>{
+        const k = n.dataset.k;
+        const v = clamp(parseFloat(n.value), 0, 1);
+        const range = el.querySelector(`input[type="range"][data-k="${k}"]`);
+        if(range) range.value = String(v);
+        n.value = v.toFixed(2);
+        onChange(k,v);
+      };
+    });
+  }
+
+  /** -------------------------
+   * Calibration tab
+   * ------------------------- */
+  function renderCalibrationTab(){
+    ui.left.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Calibration</h2>
+        <small>Optimize weights vs maintenance target</small>
+      </div>
+
+      <div class="panel">
+        <h4>Target + Objective</h4>
+        <div class="row">
+          <label>Target column</label>
+          <select id="calTarget" class="num"></select>
+        </div>
+        <div class="row">
+          <label>Objective</label>
+          <select id="calObjective" class="num">
+            <option value="spearman">Max Spearman corr(health, target)</option>
+            <option value="pearson">Max Pearson corr(health, target)</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Scope</label>
+          <select id="calScope" class="num">
+            <option value="active">Active scope only</option>
+            <option value="global">Global only</option>
+            <option value="per_machine">Per-machine (batch)</option>
+          </select>
+        </div>
+        <div class="hr"></div>
+        <div class="grid3">
+          <div>
+            <div class="small">Iterations</div>
+            <input id="calIters" class="num" value="400" />
+          </div>
+          <div>
+            <div class="small">Step / Noise</div>
+            <input id="calSigma" class="num" value="0.15" />
+          </div>
+          <div>
+            <div class="small">Normalize weights</div>
+            <select id="calNorm" class="num">
+              <option value="both">Benefits + Costs</option>
+              <option value="benefits">Benefits only</option>
+              <option value="costs">Costs only</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="grid2">
+          <button class="btn" id="btnCalibrate">Run Calibration</button>
+          <button class="btn secondary" id="btnCalReset">Reset Best</button>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">
+          Quick stochastic tuner — for production use constrained optimization & cross-validation.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Calibration Output</h4>
+        <div class="kv">
+          <div class="k">Best Objective</div><div class="v" id="calBestObj">—</div>
+          <div class="k">Best Weights</div><div class="v" id="calBestW">—</div>
+        </div>
+        <div class="hr"></div>
+        <div class="small">Tip: after calibration, hit <b>Compute Health Scores</b> in Scoring tab.</div>
+      </div>
+    `;
+
+    const targetSel = document.getElementById("calTarget");
+    const cols = state.columns || [];
+    targetSel.innerHTML = `<option value="">(choose)</option>` + cols.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+
+    document.getElementById("btnCalReset").onclick = ()=>{
+      document.getElementById("calBestObj").textContent = "—";
+      document.getElementById("calBestW").textContent = "—";
+      log("Calibration output reset.");
+    };
+
+    document.getElementById("btnCalibrate").onclick = async ()=>{
+      const targetCol = targetSel.value;
+      if(!targetCol){ alert("Choose a target column."); return; }
+      if(!state.rawRows.length){ alert("Load data first."); return; }
+
+      const objective = document.getElementById("calObjective").value;
+      const scope = document.getElementById("calScope").value;
+      const iters = clampInt(parseInt(document.getElementById("calIters").value||"400"), 30, 5000);
+      const sigma = clamp(parseFloat(document.getElementById("calSigma").value||"0.15"), 0.01, 0.80);
+      const normMode = document.getElementById("calNorm").value;
+
+      log(`Calibration started: target=${targetCol}, obj=${objective}, scope=${scope}, iters=${iters}`);
+
+      if(scope === "per_machine"){
+        await calibratePerMachine(targetCol, objective, iters, sigma, normMode);
+      } else {
+        const profRef = (scope==="global") ? state.profiles.global : getActiveProfileRef();
+        const res = await calibrateOnce(profRef, targetCol, objective, iters, sigma, normMode, null);
+        document.getElementById("calBestObj").textContent = res.bestScore.toFixed(5);
+        document.getElementById("calBestW").textContent = res.summary;
+      }
+
+      persistProfileScope();
+      log("Calibration complete.");
+      render();
+    };
+  }
+
+  async function calibratePerMachine(targetCol, objective, iters, sigma, normMode){
+    const midCol = state.schema.machineId;
+    if(!midCol){
+      alert("Per-machine calibration requires MachineID mapping.");
+      return;
+    }
+    const machines = unique(state.rawRows.map(r=>String(r[midCol]||"(none)")));
+    let bestOverall = -Infinity;
+
+    for(const m of machines){
+      if(!state.profiles.machine[m]){
+        state.profiles.machine[m] = deepClone(state.profiles.global);
+      }
+      const profRef = state.profiles.machine[m];
+
+      const res = await calibrateOnce(profRef, targetCol, objective, iters, sigma, normMode, (row)=>{
+        return String(row[midCol]||"(none)") === m;
+      });
+
+      bestOverall = Math.max(bestOverall, res.bestScore);
+      log(`Machine ${m}: best=${res.bestScore.toFixed(4)}`);
+    }
+
+    document.getElementById("calBestObj").textContent = bestOverall.toFixed(5);
+    document.getElementById("calBestW").textContent = `Per-machine calibrated (${machines.length} machines)`;
+  }
+
+  async function calibrateOnce(profileRef, targetCol, objective, iters, sigma, normMode, rowFilterFn){
+    const base = deepClone(profileRef);
+    let best = deepClone(profileRef);
+    let bestScore = -Infinity;
+
+    const filtered = state.rawRows.filter(r=> rowFilterFn ? rowFilterFn(r) : true);
+    if(filtered.length < 12){
+      log("Calibration skipped: too few rows for scope.");
+      return {bestScore:-Infinity, summary:"(too few rows)"};
+    }
+
+    const scoreWith = (candidateProfile)=>{
+      const scored = computeScoresInternal(candidateProfile, {overrideAllProfiles:true, filterFn: rowFilterFn});
+      const xs = scored.map(r=>r.value);
+      const ys = scored.map((r,i)=>parseNumeric(filtered[i]?.[targetCol]));
+      const pairs = xs.map((x,i)=>({x, y: ys[i]})).filter(p=>isFinite(p.x) && isFinite(p.y));
+      if(pairs.length < 10) return -Infinity;
+      const X = pairs.map(p=>p.x);
+      const Y = pairs.map(p=>p.y);
+      return (objective==="spearman") ? spearmanCorr(X,Y) : pearsonCorr(X,Y);
+    };
+
+    bestScore = scoreWith(best);
+
+    for(let i=0;i<iters;i++){
+      const cand = mutateProfile(best, sigma, normMode);
+      const s = scoreWith(cand);
+      if(s > bestScore){
+        bestScore = s;
+        best = cand;
+      }
+      if(i % 60 === 0) await new Promise(r=>setTimeout(r, 0));
+    }
+
+    profileRef.benefits = best.benefits;
+    profileRef.costs = best.costs;
+    profileRef.normalizeBenefits = best.normalizeBenefits;
+    profileRef.normalizeCosts = best.normalizeCosts;
+    profileRef.difficultyBoostK = best.difficultyBoostK;
+
+    const summary = `B:[${Object.entries(best.benefits).map(([k,v])=>k+":"+v.toFixed(2)).join(", ")}] C:[${Object.entries(best.costs).map(([k,v])=>k+":"+v.toFixed(2)).join(", ")}]`;
+    return {bestScore, summary};
+  }
+
+  function mutateProfile(prof, sigma, normMode){
+    const cand = deepClone(prof);
+
+    for(const k of Object.keys(cand.benefits)){
+      cand.benefits[k] = Math.max(0, cand.benefits[k] + randn(0, sigma));
+    }
+    for(const k of Object.keys(cand.costs)){
+      cand.costs[k] = Math.max(0, cand.costs[k] + randn(0, sigma));
+    }
+
+    if(normMode==="both" || normMode==="benefits"){
+      const s = sum(Object.values(cand.benefits));
+      if(s>0) for(const k of Object.keys(cand.benefits)) cand.benefits[k] /= s;
+    }
+    if(normMode==="both" || normMode==="costs"){
+      const s = sum(Object.values(cand.costs));
+      if(s>0) for(const k of Object.keys(cand.costs)) cand.costs[k] /= s;
+    }
+
+    cand.normalizeBenefits = prof.normalizeBenefits;
+    cand.normalizeCosts = prof.normalizeCosts;
+    cand.difficultyBoostK = prof.difficultyBoostK;
+
+    return cand;
+  }
+
+  /** -------------------------
+   * Bins & Tags tab
+   * ------------------------- */
+  function renderBinsTab(){
+    ui.left.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Binning & Tags</h2>
+        <small>Thresholds → Maintenance tags</small>
+      </div>
+
+      <div class="panel">
+        <h4>Status thresholds</h4>
+        <div class="grid3">
+          <div><div class="small">Healthy ≥</div><input id="tokHealthy" class="num" value="${state.tokens.healthy}"></div>
+          <div><div class="small">Attention ≥</div><input id="tokAttention" class="num" value="${state.tokens.attention}"></div>
+          <div><div class="small">Warning ≥</div><input id="tokWarning" class="num" value="${state.tokens.warning}"></div>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">Anything below Warning becomes Critical.</div>
+      </div>
+
+      <div class="panel">
+        <h4>Tag thresholds (normalized features)</h4>
+        <div class="grid3">
+          <div><div class="small">High Temp ≥</div><input id="binTemp" class="num" value="${state.bins.highTemp}"></div>
+          <div><div class="small">High Vib ≥</div><input id="binVib" class="num" value="${state.bins.highVib}"></div>
+          <div><div class="small">Low Fuel ≤</div><input id="binFuel" class="num" value="${state.bins.lowFuel}"></div>
+        </div>
+        <div class="hr"></div>
+        <div class="grid2">
+          <button class="btn" id="btnRebin">Recompute Tags</button>
+          <button class="btn secondary" id="btnExplainBins">Explain Tag Logic</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Tag summary</h4>
+        <div id="binSummary" class="hint">${renderBinSummary()}</div>
+      </div>
+    `;
+
+    document.getElementById("btnExplainBins").onclick = ()=>{
+      alert(
+        "TagID = machine:jobsite:<tags>\n\n" +
+        "Tags:\n" +
+        "- highTemp if temperature_norm >= HIGH TEMP threshold\n" +
+        "- highVib if vibration_norm >= HIGH VIB threshold\n" +
+        "- lowFuel if fuel_norm <= LOW FUEL threshold\n\n" +
+        "Tags map to maintenance flows and alerting."
+      );
+    };
+
+    document.getElementById("btnRebin").onclick = ()=>{
+      state.tokens.healthy = clamp(parseFloat(document.getElementById("tokHealthy").value), -2, 2);
+      state.tokens.attention = clamp(parseFloat(document.getElementById("tokAttention").value), -2, 2);
+      state.tokens.warning = clamp(parseFloat(document.getElementById("tokWarning").value), -2, 2);
+
+      state.bins.highTemp = clamp(parseFloat(document.getElementById("binTemp").value), 0, 1);
+      state.bins.highVib = clamp(parseFloat(document.getElementById("binVib").value), 0, 1);
+      state.bins.lowFuel = clamp(parseFloat(document.getElementById("binFuel").value), 0, 1);
+
+      if(!state.scoredRows.length){
+        alert("Compute scores first.");
+        return;
+      }
+      state.scoredRows.forEach(r=>{
+        r.token = tokenForValue(r.value);
+        r.binId = computeBinId(r);
+      });
+      state.lastScoreStats = summarizeScores(state.scoredRows);
+      log("Tags + statuses recomputed.");
+      render();
+    };
+  }
+
+  function renderBinSummary(){
+    if(!state.scoredRows.length) return "Compute scores to see tag distribution.";
+    const counts = {};
+    for(const r of state.scoredRows){
+      counts[r.binId] = (counts[r.binId]||0)+1;
+    }
+    const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    return top.map(([k,v])=>`${escapeHtml(k)} — <span class="mono">${v}</span>`).join("<br/>");
+  }
+
+  /** -------------------------
+   * Export tab
+   * ------------------------- */
+  function renderExportTab(){
+    ui.left.innerHTML = `
+      <div class="sectionTitle">
+        <h2>Export</h2>
+        <small>Health scores + configuration</small>
+      </div>
+
+      <div class="panel">
+        <h4>Download</h4>
+        <div class="grid2">
+          <button class="btn" id="btnDlCSV">Download Scored CSV</button>
+          <button class="btn secondary" id="btnDlConfig">Download Config JSON</button>
+        </div>
+        <div class="hr"></div>
+        <div class="hint">
+          CSV includes raw fields, normalized features, contributions, value, token, and tag_id.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Import Config</h4>
+        <div class="row">
+          <label>Config JSON</label>
+          <input type="file" id="cfgFile" accept=".json,application/json" />
+        </div>
+        <div class="row">
+          <button class="btn" id="btnImportCfg">Import</button>
+        </div>
+        <div class="hr"></div>
+        <button class="btn danger" id="btnFactoryReset">Factory Reset Config</button>
+      </div>
+    `;
+
+    document.getElementById("btnDlCSV").onclick = ()=>{
+      if(!state.scoredRows.length){ alert("Compute scores first."); return; }
+      const csv = buildScoredCSV();
+      downloadText("rednode_scored.csv", csv, "text/csv");
+    };
+
+    document.getElementById("btnDlConfig").onclick = ()=>{
+      const cfg = buildConfigJSON();
+      downloadText("rednode_config.json", JSON.stringify(cfg, null, 2), "application/json");
+    };
+
+    document.getElementById("btnImportCfg").onclick = ()=>{
+      const f = document.getElementById("cfgFile").files?.[0];
+      if(!f){ alert("Choose a JSON file."); return; }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          const cfg = JSON.parse(reader.result);
+          if(cfg.profiles) state.profiles = cfg.profiles;
+          if(cfg.norm) state.norm = cfg.norm;
+          if(cfg.gates) state.gates = cfg.gates;
+          if(cfg.tokens) state.tokens = cfg.tokens;
+          if(cfg.bins) state.bins = cfg.bins;
+          syncGatesUIFromState();
+          log("Imported config JSON.");
+          render();
+        }catch(e){
+          alert("Invalid JSON config.");
+        }
+      };
+      reader.readAsText(f);
+    };
+
+    document.getElementById("btnFactoryReset").onclick = ()=>{
+      if(!confirm("Reset weights + thresholds to defaults?")) return;
+      state.profiles = { global: defaultWeights(), machine:{}, jobsite:{} };
+      state.norm = { scope:"global", method:"minmax", clip01:true };
+      state.gates = { maxTemp:110, maxVib:9.0, minSignal:0.6, policy:"zero" };
+      state.tokens = { healthy:0.80, attention:0.60, warning:0.40 };
+      state.bins = { highTemp:0.80, highVib:0.80, lowFuel:0.30 };
+      log("Factory reset applied.");
+      render();
+    };
+  }
+
+  /** -------------------------
+   * Scoring engine (adapted for telemetry)
+   * ------------------------- */
+  function computeScores(){
+    state.scoredRows = computeScoresInternal(null, {overrideAllProfiles:false, filterFn:null});
+    state.lastScoreStats = summarizeScores(state.scoredRows);
+    state.selectedRowIndex = null;
+  }
+
+  function computeScoresInternal(overrideProfile, {overrideAllProfiles, filterFn}){
+    const schema = state.schema;
+    const raw = filterFn ? state.rawRows.filter(filterFn) : state.rawRows;
+
+    const extracted = raw.map((row, idx)=>{
+      const machineId = schema.machineId ? String(row[schema.machineId] ?? "") : "";
+      const jobsite = schema.jobsite ? String(row[schema.jobsite] ?? "") : "";
+      const timestamp = schema.timestamp ? String(row[schema.timestamp] ?? "") : "";
+
+      const rpm = parseNumeric(schema.rpm ? row[schema.rpm] : null);
+      const torque = parseNumeric(schema.torque ? row[schema.torque] : null);
+      const temperature = parseNumeric(schema.temperature ? row[schema.temperature] : null);
+      const vibration = parseNumeric(schema.vibration ? row[schema.vibration] : null);
+      const fuel = parseNumeric(schema.fuel ? row[schema.fuel] : null);
+      const signalQuality = parseNumeric(schema.signalQuality ? row[schema.signalQuality] : null);
+      const operator = schema.operator ? String(row[schema.operator] ?? "") : "";
+      const seqId = schema.sequenceId ? String(row[schema.sequenceId] ?? "") : "";
+
+      // derived features
+      const fuelEfficiency = isFinite(fuel) ? fuel : NaN;
+      const uptimeProxy = 1.0; // placeholder for longer-term telemetry
+
+      return {
+        _i: idx,
+        machineId, jobsite, timestamp, sequenceId: seqId, raw: row,
+        rpm, torque, temperature, vibration, fuel, signalQuality, operator,
+        fuelEfficiency, uptimeProxy
+      };
+    });
+
+    const normScope = state.norm.scope;
+    const groupKey = (r) => {
+      if(normScope === "machine") return (r.machineId || "(none)");
+      if(normScope === "machine_jobsite") return (r.machineId || "(none)") + "||" + (r.jobsite || "(none)");
+      return "__global__";
+    };
+
+    const groups = {};
+    for(const r of extracted){
+      const k = groupKey(r);
+      if(!groups[k]) groups[k] = [];
+      groups[k].push(r);
+    }
+
+    const statsByGroup = {};
+    for(const [k, arr] of Object.entries(groups)){
+      statsByGroup[k] = {
+        rpm: buildStats(arr.map(x=>x.rpm)),
+        torque: buildStats(arr.map(x=>x.torque)),
+        temperature: buildStats(arr.map(x=>x.temperature)),
+        vibration: buildStats(arr.map(x=>x.vibration)),
+        fuel: buildStats(arr.map(x=>x.fuel || NaN)),
+        signal: buildStats(arr.map(x=>x.signalQuality || NaN))
+      };
+    }
+
+    const scored = [];
+    for(const r of extracted){
+      const k = groupKey(r);
+      const st = statsByGroup[k];
+
+      const rpmN = normalize(r.rpm, st.rpm);
+      const torqueN = normalize(r.torque, st.torque);
+      const signalN = normalize(defaultIfNaN(r.signalQuality, 0.8), st.signal);
+      const fuelN = normalize(defaultIfNaN(r.fuel, 0.6), st.fuel);
+
+      const tempPen = normalize(r.temperature, st.temperature);
+      const vibPen = normalize(r.vibration, st.vibration);
+
+      const gated = gateFailTelemetry(r, tempPen, vibPen, signalN);
+
+      if(gated && state.gates.policy === "drop"){
+        continue;
+      }
+
+      let w;
+      if(overrideAllProfiles){
+        w = overrideProfile;
+      } else {
+        w = effectiveWeightsForRow(r.machineId, r.jobsite);
+      }
+
+      const wb = deepClone(w.benefits);
+      const wc = deepClone(w.costs);
+      if(w.normalizeBenefits) renormInPlace(wb);
+      if(w.normalizeCosts) renormInPlace(wc);
+
+      const contrib = {
+        rpm: wb.rpm * rpmN,
+        torque: wb.torque * torqueN,
+        signal: wb.signal * signalN,
+        fuelEfficiency: wb.fuelEfficiency * fuelN,
+        uptime: wb.uptime * 1.0,
+        temperature: wc.temperature * tempPen,
+        vibration: wc.vibration * vibPen,
+        complexity: wc.complexity * 0,
+        difficultyBoost: 0
+      };
+
+      let value = (contrib.rpm + contrib.torque + contrib.signal + contrib.fuelEfficiency + contrib.uptime)
+                - (contrib.temperature + contrib.vibration + contrib.complexity);
+
+      const diff = defaultIfNaN(r.difficulty || 0, 0);
+      const kBoost = w.difficultyBoostK ?? 0;
+      const mult = 1 + kBoost * diff;
+      contrib.difficultyBoost = value * (mult - 1);
+      value = value * mult;
+
+      let finalValue = value;
+      if(gated){
+        finalValue = (state.gates.policy === "neg") ? -1 : 0;
+      }
+
+      const rowOut = {
+        idx: r._i,
+        machineId: r.machineId,
+        jobsite: r.jobsite,
+        sequenceId: r.sequenceId,
+        raw: { rpm: r.rpm, temperature: r.temperature, vibration: r.vibration, torque: r.torque, fuel: r.fuel, signalQuality: r.signalQuality },
+        features: { rpmN, torqueN, signalN, fuelN, tempPen, vibPen },
+        contributions: contrib,
+        value: finalValue,
+        gated: gated,
+        token: null,
+        binId: null
+      };
+
+      rowOut.token = tokenForValue(rowOut.value);
+      rowOut.binId = computeBinId(rowOut);
+
+      scored.push(rowOut);
+    }
+
+    return scored;
+  }
+
+  function gateFailTelemetry(r, tempPen, vibPen, signalN){
+    const maxTemp = state.gates.maxTemp;
+    const maxVib = state.gates.maxVib;
+    const minSignal = state.gates.minSignal;
+
+    if(isFinite(r.temperature) && isFinite(maxTemp) && r.temperature > maxTemp) return true;
+    if(isFinite(r.vibration) && isFinite(maxVib) && r.vibration > maxVib) return true;
+    if(isFinite(minSignal) && isFinite(signalN) && signalN < minSignal) return true;
+    return false;
+  }
+
+  function normalize(x, stats){
+    if(!isFinite(x)) return 0.5;
+    const method = state.norm.method;
+    let v = 0.5;
+    if(method === "minmax"){
+      const denom = (stats.max - stats.min);
+      v = denom > 1e-12 ? (x - stats.min) / denom : 0.5;
+    } else if(method === "zsigmoid"){
+      const z = (x - stats.mean) / (stats.std || 1);
+      v = sigmoid(z);
+    } else if(method === "robustsigmoid"){
+      const z = (x - stats.median) / (stats.mad || 1);
+      v = sigmoid(z);
+    }
+    if(state.norm.clip01) v = clamp(v, 0, 1);
+    return v;
+  }
+
+  function buildStats(arr){
+    const xs = arr.filter(v=>isFinite(v)).sort((a,b)=>a-b);
+    if(!xs.length){
+      return {min:0,max:1,mean:0.5,std:0.25,median:0.5,mad:0.25};
+    }
+    const min = xs[0], max = xs[xs.length-1];
+    const mean = xs.reduce((a,b)=>a+b,0)/xs.length;
+    const std = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/xs.length) || 1e-9;
+    const median = xs[Math.floor(xs.length/2)];
+    const mad = medianAbsDev(xs, median) || 1e-9;
+    return {min,max,mean,std,median,mad};
+  }
+  function medianAbsDev(xs, med){ const dev = xs.map(x=>Math.abs(x-med)).sort((a,b)=>a-b); return dev[Math.floor(dev.length/2)]; }
+
+  function effectiveWeightsForRow(machineId, jobsite){
+    let w = deepClone(state.profiles.global);
+    if(machineId && state.profiles.machine[machineId]){
+      w = mergeWeights(w, state.profiles.machine[machineId]);
+    }
+    if(jobsite && state.profiles.jobsite[jobsite]){
+      w = mergeWeights(w, state.profiles.jobsite[jobsite]);
+    }
+    return w;
+  }
+
+  function mergeWeights(base, over){
+    const out = deepClone(base);
+    if(over.benefits) out.benefits = {...out.benefits, ...over.benefits};
+    if(over.costs) out.costs = {...out.costs, ...over.costs};
+    if(typeof over.difficultyBoostK === "number") out.difficultyBoostK = over.difficultyBoostK;
+    if(typeof over.normalizeBenefits === "boolean") out.normalizeBenefits = over.normalizeBenefits;
+    if(typeof over.normalizeCosts === "boolean") out.normalizeCosts = over.normalizeCosts;
+    return out;
+  }
+
+  function renormInPlace(obj){
+    const s = sum(Object.values(obj));
+    if(s<=0) return;
+    for(const k of Object.keys(obj)) obj[k] /= s;
+  }
+
+  /** -------------------------
+   * Token + bin/tag logic
+   * ------------------------- */
+  function tokenForValue(v){
+    if(v >= state.tokens.healthy) return "Healthy";
+    if(v >= state.tokens.attention) return "Attention";
+    if(v >= state.tokens.warning) return "Warning";
+    return "Critical";
+  }
+
+  function tokenBadge(t){
+    if(t==="Healthy") return `<span class="badge good">Healthy</span>`;
+    if(t==="Attention") return `<span class="badge warn">Attention</span>`;
+    if(t==="Warning") return `<span class="badge warn">Warning</span>`;
+    return `<span class="badge bad">Critical</span>`;
+  }
+
+  function computeBinId(r){
+    const m = r.machineId || "(none)";
+    const j = r.jobsite || "(none)";
+    const tags = [];
+    if(r.features.tempPen >= state.bins.highTemp) tags.push("highTemp");
+    if(r.features.vibPen >= state.bins.highVib) tags.push("highVib");
+    if(r.features.fuelN <= state.bins.lowFuel) tags.push("lowFuel");
+    if(!tags.length) tags.push("baseline");
+    return `${m}:${j}:${tags.join("-")}`;
+  }
+
+  /** -------------------------
+   * Score summary
+   * ------------------------- */
+  function summarizeScores(scored){
+    const vs = scored.map(r=>r.value);
+    const avg = vs.reduce((a,b)=>a+b,0)/Math.max(vs.length,1);
+    const std = Math.sqrt(vs.reduce((a,b)=>a+(b-avg)*(b-avg),0)/Math.max(vs.length,1));
+    const min = Math.min(...vs);
+    const max = Math.max(...vs);
+
+    const counts = {Healthy:0, Attention:0, Warning:0, Critical:0};
+    scored.forEach(r=>counts[r.token] = (counts[r.token]||0)+1);
+    const tokenSummary = `H${counts.Healthy} A${counts.Attention} W${counts.Warning} C${counts.Critical}`;
+
+    return {avgValue:avg, stdValue:std, minValue:min, maxValue:max, tokenSummary};
+  }
+
+  function rateSystem(avg){
+    if(avg > 0.80) return "Excellent";
+    if(avg > 0.55) return "Very Good";
+    if(avg > 0.30) return "Good";
+    if(avg > 0.10) return "Fair";
+    if(avg > -0.10) return "Poor";
+    return "Very Poor";
+  }
+  function ratingClass(r){
+    if(r==="Excellent" || r==="Very Good") return "good";
+    if(r==="Good" || r==="Fair") return "warn";
+    return "bad";
+  }
+
+  /** -------------------------
+   * Table rendering
+   * ------------------------- */
+  function renderTableInLeftPane(){
+    const rows = state.scoredRows;
+    const head = `
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Machine</th>
+            <th>JobSite</th>
+            <th class="mono">Health</th>
+            <th>Status</th>
+            <th>Tag</th>
+            <th class="mono">rpmN</th>
+            <th class="mono">tempPen</th>
+            <th class="mono">vibPen</th>
+            <th>Gated</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    const body = rows.slice(0, 250).map((r,i)=>{
+      const gated = r.gated ? `<span class="badge bad">YES</span>` : `<span class="badge good">NO</span>`;
+      return `
+        <tr data-i="${i}">
+          <td class="mono">${i}</td>
+          <td>${escapeHtml(r.machineId||"")}</td>
+          <td>${escapeHtml(r.jobsite||"")}</td>
+          <td class="mono">${r.value.toFixed(4)}</td>
+          <td>${tokenBadge(r.token)}</td>
+          <td title="${escapeHtml(r.binId)}">${escapeHtml(r.binId)}</td>
+          <td class="mono">${r.features.rpmN.toFixed(3)}</td>
+          <td class="mono">${r.features.tempPen.toFixed(3)}</td>
+          <td class="mono">${r.features.vibPen.toFixed(3)}</td>
+          <td>${gated}</td>
+        </tr>
+      `;
+    }).join("");
+    const foot = `</tbody></table>`;
+    return head + body + foot;
+  }
+
+  const _renderScoringTabOriginal = renderScoringTab;
+  renderScoringTab = function(){
+    _renderScoringTabOriginal();
+    if(state.scoredRows.length){
+      ui.left.innerHTML += `
+        <div class="panel">
+          <h4>Scored Records (first 250)</h4>
+          <div class="hint">Click a row to inspect breakdown on the right.</div>
+          <div class="hr"></div>
+          <div style="max-height:420px; overflow:auto;">
+            ${renderTableInLeftPane()}
+          </div>
+        </div>
+      `;
+      ui.left.querySelectorAll("tr[data-i]").forEach(tr=>{
+        tr.onclick = ()=>{
+          state.selectedRowIndex = parseInt(tr.dataset.i);
+          log(`Selected record #${state.selectedRowIndex}`);
+          renderRightPane();
+        };
+      });
+    }
+  };
+
+  /** -------------------------
+   * Sidebar scope selection
+   * ------------------------- */
+  function hydrateScopeSelectors(){
+    const machines = unique(state.rawRows.map(r=>{
+      const c = state.schema.machineId;
+      return c ? String(r[c]||"(none)") : "(none)";
+    })).slice(0,200);
+
+    const jobs = unique(state.rawRows.map(r=>{
+      const c = state.schema.jobsite;
+      return c ? String(r[c]||"(none)") : "(none)";
+    })).slice(0,200);
+
+    // create or reuse selects
+    if(!ui.scopeSelect) return;
+    ui.segmentSelect = ui.segmentSelect || document.createElement("select");
+    ui.movementSelect = ui.movementSelect || document.createElement("select");
+
+    ui.segmentSelect.innerHTML = machines.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+    ui.movementSelect.innerHTML = jobs.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+
+    if(!ui.segmentSelect.value && machines.length) ui.segmentSelect.value = machines[0];
+    if(!ui.movementSelect.value && jobs.length) ui.movementSelect.value = jobs[0];
+
+    ui.scopeSelect.onchange = ()=>{ persistProfileScope(); render(); };
+    ui.segmentSelect.onchange = ()=>{ persistProfileScope(); render(); };
+    ui.movementSelect.onchange = ()=>{ persistProfileScope(); render(); };
+
+    const scope = ui.scopeSelect.value;
+    if(scope==="global") ui.statProfile.textContent = "Profile: Global";
+    if(scope==="segment") ui.statProfile.textContent = `Profile: Machine(${ui.segmentSelect.value||""})`;
+    if(scope==="movement") ui.statProfile.textContent = `Profile: JobSite(${ui.movementSelect.value||""})`;
+
+    ui.btnResetScope.onclick = ()=>{
+      const scope = ui.scopeSelect.value;
+      if(scope==="global"){
+        if(!confirm("Reset GLOBAL weights to defaults?")) return;
+        state.profiles.global = defaultWeights();
+      } else if(scope==="segment"){
+        const s = ui.segmentSelect.value;
+        if(!s) return;
+        if(!confirm(`Reset MACHINE(${s}) override?`)) return;
+        delete state.profiles.machine[s];
+      } else if(scope==="movement"){
+        const m = ui.movementSelect.value;
+        if(!m) return;
+        if(!confirm(`Reset JOBSITE(${m}) override?`)) return;
+        delete state.profiles.jobsite[m];
+      }
+      log("Scope weights reset.");
+      render();
+    };
+
+    // attach selects into DOM if not yet attached
+    const profileCard = document.querySelector(".card:nth-child(3)");
+    // no-op: we already have selectors in original layout; leave hydration only
+  }
+
+  function getActiveProfileRef(){
+    const scope = ui.scopeSelect.value;
+    if(scope === "global") return state.profiles.global;
+
+    if(scope === "segment"){
+      const seg = ui.segmentSelect.value || "(none)";
+      if(!state.profiles.machine[seg]){
+        state.profiles.machine[seg] = deepClone(state.profiles.global);
+      }
+      return state.profiles.machine[seg];
+    }
+
+    if(scope === "movement"){
+      const mv = ui.movementSelect.value || "(none)";
+      if(!state.profiles.jobsite[mv]){
+        state.profiles.jobsite[mv] = deepClone(state.profiles.global);
+      }
+      return state.profiles.jobsite[mv];
+    }
+
+    return state.profiles.global;
+  }
+
+  function persistProfileScope(){
+    const scope = ui.scopeSelect.value;
+    if(scope==="global") ui.statProfile.textContent = "Profile: Global";
+    if(scope==="segment") ui.statProfile.textContent = `Profile: Machine(${ui.segmentSelect.value||""})`;
+    if(scope==="movement") ui.statProfile.textContent = `Profile: JobSite(${ui.movementSelect.value||""})`;
+  }
+
+  /** -------------------------
+   * Gates UI sync
+   * ------------------------- */
+  function syncGatesUIFromState(){
+    ui.gateMaxTemp.value = String(state.gates.maxTemp);
+    ui.gateMaxVib.value = String(state.gates.maxVib);
+    ui.gateMinSignal.value = String(state.gates.minSignal);
+    ui.gatePolicy.value = state.gates.policy;
+  }
+
+  ui.btnApplyGates.onclick = ()=>{
+    state.gates.maxTemp = clamp(parseFloat(ui.gateMaxTemp.value||"110"), 0, 9999);
+    state.gates.maxVib = clamp(parseFloat(ui.gateMaxVib.value||"9.0"), 0, 9999);
+    state.gates.minSignal = clamp(parseFloat(ui.gateMinSignal.value||"0.6"), 0, 1);
+    state.gates.policy = ui.gatePolicy.value;
+    syncGatesUIFromState();
+    log(`Gates set: maxTemp=${state.gates.maxTemp}, maxVib=${state.gates.maxVib}, minSignal=${state.gates.minSignal}, policy=${state.gates.policy}`);
+    if(state.scoredRows.length){
+      computeScores();
+      log("Recomputed scores with new gates.");
+      render();
+    }
+  };
+
+  /** -------------------------
+   * Integration: RedNode API / WebSocket stubs
+   * ------------------------- */
+  function initIntegrationHooks(){
+    ui.rnApiBase.onchange = (e)=> state.integration.apiBase = e.target.value;
+    ui.rnApiKey.onchange = (e)=> state.integration.apiKey = e.target.value;
+
+    ui.btnTestConn.onclick = async ()=>{
+      const base = ui.rnApiBase.value.trim();
+      const key = ui.rnApiKey.value.trim();
+      if(!base || !key){ alert("Specify API base and key."); return; }
+      log(`Testing connection to ${base}`);
+      try{
+        // This is a placeholder: exchange for your real health-check endpoint
+        const res = await fetch(base + "/health", {headers: {Authorization: "Bearer " + key}});
+        if(res.ok){ log("Connection OK."); alert("Connection OK."); }
+        else { log(`Connection failed: ${res.status}`); alert("Connection failed, check console."); }
+      }catch(e){
+        log("Connection error: " + e.message);
+        alert("Connection error, see console.");
+      }
+    };
+
+    ui.btnFetchMachines.onclick = async ()=>{
+      const base = ui.rnApiBase.value.trim();
+      const key = ui.rnApiKey.value.trim();
+      if(!base || !key){ alert("Specify API base and key."); return; }
+      log("Fetching machines list...");
+      try{
+        // placeholder: adapt to your RedNode API
+        const res = await fetch(base + "/v1/machines", {headers: {Authorization: "Bearer " + key}});
+        if(!res.ok){ log("Failed to fetch machines: " + res.status); alert("Failed to fetch machines."); return; }
+        const json = await res.json();
+        log(`Fetched ${json.length || (json.machines && json.machines.length) || 0} machines (sample).`);
+        // optionally populate machine selection, etc.
+      }catch(e){
+        log("Fetch machines error: " + e.message);
+        alert("Fetch error. See console.");
+      }
+    };
+
+    ui.btnStartStream.onclick = ()=>{
+      const base = ui.rnApiBase.value.trim();
+      const key = ui.rnApiKey.value.trim();
+      if(!base || !key){ alert("Specify API base and key."); return; }
+      openTelemetryStream(base.replace(/^http/, "ws") + "/v1/telemetry/stream?api_key=" + encodeURIComponent(key));
+    };
+  }
+
+  // open a websocket to receive telemetry (stub)
+  function openTelemetryStream(wsUrl){
+    if(state.integration.ws){
+      log("Closing existing stream...");
+      try{ state.integration.ws.close(); } catch(e){}
+      state.integration.ws = null;
+    }
+    try{
+      log("Opening telemetry stream: " + wsUrl);
+      const ws = new WebSocket(wsUrl);
+      state.integration.ws = ws;
+      ws.onopen = ()=> log("Telemetry stream connected.");
+      ws.onmessage = (evt)=>{
+        try{
+          const data = JSON.parse(evt.data);
+          // assume data is telemetry record — push to rawRows and re-render
+          state.rawRows.unshift(data);
+          state.columns = unique([...state.columns, ...Object.keys(data)]);
+          log("Telemetry received: " + (data.machineId || data.MachineID || "(unknown)"));
+          // only keep a bounded buffer
+          if(state.rawRows.length > 4000) state.rawRows.pop();
+          render();
+        }catch(e){
+          console.error("ws parse error", e);
+        }
+      };
+      ws.onclose = ()=> log("Telemetry stream closed.");
+      ws.onerror = (e)=> log("Telemetry stream error.");
+    }catch(e){
+      log("Failed to open telemetry stream: " + e.message);
+      alert("Failed to start stream. See console.");
+    }
+  }
+
+  /** -------------------------
+   * Helpers
+   * ------------------------- */
+  function clamp(x,a,b){ return Math.min(b, Math.max(a, x)); }
+  function clampInt(x,a,b){ return Math.min(b, Math.max(a, x|0)); }
+  function sum(xs){ return xs.reduce((a,b)=>a+b,0); }
+  function sigmoid(z){ return 1/(1+Math.exp(-z)); }
+  function round(x,n){ const p = Math.pow(10,n); return Math.round(x*p)/p; }
+  function unique(arr){
+    const s = new Set();
+    for(const x of arr){
+      const v = String(x ?? "");
+      if(!s.has(v)) s.add(v);
+    }
+    return Array.from(s);
+  }
+  function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+  function parseNumeric(v){
+    if(v == null) return NaN;
+    if(typeof v === "number") return v;
+    const s = String(v).trim();
+    if(!s) return NaN;
+    const cleaned = s.replaceAll(",","");
+    const x = parseFloat(cleaned);
+    return isFinite(x) ? x : NaN;
+  }
+  function defaultIfNaN(x, d){ return isFinite(x) ? x : d; }
+
+  function parseAccuracy(v){ // keep for compatibility
+    if(v == null) return NaN;
+    if(typeof v === "boolean") return v ? 1 : 0;
+    const s = String(v).trim().toLowerCase();
+    if(s==="true") return 1;
+    if(s==="false") return 0;
+    const x = parseNumeric(v);
+    if(!isFinite(x)) return NaN;
+    if(x > 1.0) return clamp(x/100,0,1);
+    return clamp(x,0,1);
+  }
+
+  function pearsonCorr(X, Y){
+    const n = Math.min(X.length, Y.length);
+    if(n<2) return NaN;
+    const mx = X.reduce((a,b)=>a+b,0)/n;
+    const my = Y.reduce((a,b)=>a+b,0)/n;
+    let num=0, dx=0, dy=0;
+    for(let i=0;i<n;i++){
+      const ax = X[i]-mx;
+      const ay = Y[i]-my;
+      num += ax*ay;
+      dx += ax*ax;
+      dy += ay*ay;
+    }
+    const den = Math.sqrt(dx*dy) || 1e-12;
+    return num/den;
+  }
+
+  function spearmanCorr(X, Y){
+    const rx = rank(X);
+    const ry = rank(Y);
+    return pearsonCorr(rx, ry);
+  }
+
+  function rank(arr){
+    const n = arr.length;
+    const idx = Array.from({length:n}, (_,i)=>i);
+    idx.sort((a,b)=>arr[a]-arr[b]);
+    const ranks = new Array(n);
+    let i=0;
+    while(i<n){
+      let j=i;
+      while(j+1<n && arr[idx[j+1]]===arr[idx[i]]) j++;
+      const avg = (i + j) / 2 + 1;
+      for(let k=i;k<=j;k++) ranks[idx[k]] = avg;
+      i = j+1;
+    }
+    return ranks;
+  }
+
+  function randn(mu=0, sigma=1){
+    let u=0,v=0;
+    while(u===0) u=Math.random();
+    while(v===0) v=Math.random();
+    const z = Math.sqrt(-2.0*Math.log(u)) * Math.cos(2*Math.PI*v);
+    return mu + sigma*z;
+  }
+
+  /** -------------------------
+   * Exports
+   * ------------------------- */
+  function buildConfigJSON(){
+    return {
+      version: "rednode-dashboard-v1",
+      created_at: new Date().toISOString(),
+      profiles: state.profiles,
+      norm: state.norm,
+      gates: state.gates,
+      tokens: state.tokens,
+      bins: state.bins,
+      schema: state.schema
+    };
+  }
+
+  function buildScoredCSV(){
+    const header = [
+      "MachineID","JobSite","SequenceID",
+      "Health","Status","Tag","Gated",
+      "rpmN","torqueN","signalN","fuelN","tempPen","vibPen",
+      "c_rpm","c_torque","c_signal","c_fuel","c_uptime","c_temperature","c_vibration","c_difficultyBoost",
+      "raw_rpm","raw_temperature","raw_vibration","raw_torque","raw_fuel","raw_signalQuality"
+    ];
+    const lines = [header.join(",")];
+    for(const r of state.scoredRows){
+      const row = [
+        csvCell(r.machineId), csvCell(r.jobsite), csvCell(r.sequenceId),
+        r.value, r.token, csvCell(r.binId), r.gated,
+        r.features.rpmN, r.features.torqueN, r.features.signalN, r.features.fuelN, r.features.tempPen, r.features.vibPen,
+        r.contributions.rpm, r.contributions.torque, r.contributions.signal, r.contributions.fuelEfficiency, r.contributions.uptime, r.contributions.temperature, r.contributions.vibration, r.contributions.difficultyBoost,
+        r.raw.rpm, r.raw.temperature, r.raw.vibration, r.raw.torque, r.raw.fuel, r.raw.signalQuality
+      ];
+      lines.push(row.map(csvCell).join(","));
+    }
+    return lines.join("\n");
+  }
+
+  function csvCell(v){
+    if(v == null) return "";
+    const s = String(v);
+    if(/[,"\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+    return s;
+  }
+
+  function downloadText(filename, text, mime){
+    const blob = new Blob([text], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /** -------------------------
+   * Wiring tabs & init
+   * ------------------------- */
+  function wireTabs(){
+    document.querySelectorAll(".tab").forEach(t=>{
+      t.onclick = ()=>setTab(t.dataset.tab);
+    });
+  }
+
+  function init(){
+    wireTabs();
+    syncGatesUIFromState();
+    initIntegrationHooks();
+    log("RedNode Dashboard ready. Upload telemetry or connect to RedNode.");
+    render();
+  }
+
+  // expose init
+  return { init };
+})();
+
+App.init();
+</script>
+</body>
+</html>
